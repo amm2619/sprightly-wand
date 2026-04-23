@@ -10,6 +10,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withSpring,
   withTiming,
   type SharedValue,
@@ -22,6 +23,9 @@ import { useDragCtx, type AnyDragCard } from './DragContext';
 const CARD_MIN_STEP = 18;
 const CARD_MAX_STEP = 40;
 const HAND_H_PADDING = 8;
+// Fan/arc parameters.
+const FAN_MAX_ROTATION_DEG = 8;
+const FAN_ARC_DEPTH = 10;
 
 type Props<C extends AnyDragCard> = {
   cards: C[];
@@ -46,12 +50,12 @@ export function DraggableHand<C extends AnyDragCard>({
   const handLeft = useSharedValue(0);
   const handTop = useSharedValue(0);
   const handW = useSharedValue(handWidth);
-  const handH = useSharedValue(CARD_H);
+  const handH = useSharedValue(CARD_H + FAN_ARC_DEPTH);
 
   useEffect(() => { handW.value = handWidth; }, [handWidth, handW]);
 
   const onLayout = useCallback((_: LayoutChangeEvent) => {
-    containerRef.current?.measureInWindow((x, y, w, h) => {
+    containerRef.current?.measureInWindow((x, y, _w, h) => {
       handLeft.value = x;
       handTop.value = y;
       handH.value = h;
@@ -75,27 +79,37 @@ export function DraggableHand<C extends AnyDragCard>({
       onLayout={onLayout}
       style={[
         styles.container,
-        { width: handWidth + HAND_H_PADDING * 2, height: CARD_H + HAND_H_PADDING * 2 },
+        {
+          width: handWidth + HAND_H_PADDING * 2,
+          height: CARD_H + FAN_ARC_DEPTH + HAND_H_PADDING * 2,
+        },
       ]}
       collapsable={false}
     >
-      {cards.map((c, i) => (
-        <HandCard
-          key={c.id}
-          card={c}
-          index={i}
-          totalCards={cards.length}
-          step={step}
-          selected={selectedIds.has(c.id)}
-          disabled={disabled}
-          handLeft={handLeft}
-          handTop={handTop}
-          handWidth={handW}
-          handHeight={handH}
-          onTap={() => onTap(c.id)}
-          onReorder={(newIdx) => doReorder(i, newIdx)}
-        />
-      ))}
+      {cards.map((c, i) => {
+        const norm = cards.length > 1 ? (i - (cards.length - 1) / 2) / ((cards.length - 1) / 2) : 0;
+        const rotation = norm * FAN_MAX_ROTATION_DEG;
+        const yFan = norm * norm * FAN_ARC_DEPTH; // parabolic dip at edges
+        return (
+          <HandCard
+            key={c.id}
+            card={c}
+            index={i}
+            totalCards={cards.length}
+            step={step}
+            rotation={rotation}
+            yFan={yFan}
+            selected={selectedIds.has(c.id)}
+            disabled={disabled}
+            handLeft={handLeft}
+            handTop={handTop}
+            handWidth={handW}
+            handHeight={handH}
+            onTap={() => onTap(c.id)}
+            onReorder={(newIdx) => doReorder(i, newIdx)}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -105,6 +119,8 @@ function HandCard({
   index,
   totalCards,
   step,
+  rotation,
+  yFan,
   selected,
   disabled,
   handLeft,
@@ -118,6 +134,8 @@ function HandCard({
   index: number;
   totalCards: number;
   step: number;
+  rotation: number;
+  yFan: number;
   selected: boolean;
   disabled?: boolean;
   handLeft: SharedValue<number>;
@@ -127,17 +145,26 @@ function HandCard({
   onTap: () => void;
   onReorder: (newIndex: number) => void;
 }) {
-  const { zoneAt, onDrop } = useDragCtx();
+  const { zoneAt, onDrop, setActiveCard, dragX, dragY, firePulse } = useDragCtx();
 
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
   const scale = useSharedValue(1);
   const z = useSharedValue(1);
+  const rot = useSharedValue(rotation);
+  const yArc = useSharedValue(yFan);
   const home = useSharedValue(index * step + HAND_H_PADDING);
+  const shake = useSharedValue(0);
+  const liftOpacity = useSharedValue(0);
 
   useEffect(() => {
     home.value = withSpring(index * step + HAND_H_PADDING, { damping: 18, stiffness: 180 });
   }, [index, step, home]);
+
+  useEffect(() => {
+    rot.value = withSpring(rotation, { damping: 16, stiffness: 180 });
+    yArc.value = withSpring(yFan, { damping: 16, stiffness: 180 });
+  }, [rotation, yFan, rot, yArc]);
 
   const haptic = useCallback(() => {
     Haptics.selectionAsync().catch(() => {});
@@ -145,34 +172,66 @@ function HandCard({
   const successHaptic = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   }, []);
+  const warnHaptic = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+  }, []);
 
-  const fireDrop = useCallback(
-    (absX: number, absY: number) => {
-      const zone = zoneAt(absX, absY);
-      if (zone) {
+  const beginDrag = useCallback(() => {
+    setActiveCard(card);
+  }, [card, setActiveCard]);
+  const endDrag = useCallback(() => {
+    setActiveCard(null);
+  }, [setActiveCard]);
+
+  const runShake = useCallback(() => {
+    warnHaptic();
+    shake.value = withSequence(
+      withTiming(10, { duration: 60 }),
+      withTiming(-10, { duration: 60 }),
+      withTiming(7, { duration: 55 }),
+      withTiming(-7, { duration: 55 }),
+      withTiming(0, { duration: 80 }),
+    );
+  }, [shake, warnHaptic]);
+
+  const handleDropOutcome = useCallback(
+    (zoneId: string | null, success: boolean) => {
+      if (success && zoneId) {
         successHaptic();
-        onDrop(card, zone.target);
+        firePulse(zoneId, 'success');
+      } else if (!success) {
+        runShake();
       }
     },
-    [zoneAt, onDrop, card, successHaptic],
+    [firePulse, runShake, successHaptic],
   );
 
   const pan = Gesture.Pan()
     .enabled(!disabled)
     .minDistance(8)
-    .onStart(() => {
-      scale.value = withSpring(1.12, { damping: 15 });
-      z.value = 100;
+    .onStart((e) => {
+      scale.value = withSpring(1.14, { damping: 15 });
+      z.value = 200;
+      // Flatten the card while dragged so it reads cleanly.
+      rot.value = withTiming(0, { duration: 140 });
+      yArc.value = withTiming(0, { duration: 140 });
+      liftOpacity.value = withTiming(1, { duration: 140 });
+      dragX.value = e.absoluteX;
+      dragY.value = e.absoluteY;
       runOnJS(haptic)();
+      runOnJS(beginDrag)();
     })
     .onUpdate((e) => {
       tx.value = e.translationX;
       ty.value = e.translationY;
+      dragX.value = e.absoluteX;
+      dragY.value = e.absoluteY;
     })
     .onEnd((e) => {
       const zone = zoneAt(e.absoluteX, e.absoluteY);
       if (zone) {
-        runOnJS(fireDrop)(e.absoluteX, e.absoluteY);
+        runOnJS(onDrop)(card, zone.target);
+        runOnJS(handleDropOutcome)(zone.id, true);
       } else {
         const inHandY =
           e.absoluteY >= handTop.value - 20 &&
@@ -183,12 +242,19 @@ function HandCard({
           if (targetIdx !== index) {
             runOnJS(onReorder)(targetIdx);
           }
+        } else {
+          // Released outside a zone and outside hand → invalid. Shake.
+          runOnJS(handleDropOutcome)(null, false);
         }
       }
       tx.value = withSpring(0, { damping: 18 });
       ty.value = withSpring(0, { damping: 18 });
       scale.value = withSpring(1);
       z.value = withTiming(1, { duration: 180 });
+      liftOpacity.value = withTiming(0, { duration: 220 });
+      rot.value = withSpring(rotation, { damping: 16, stiffness: 180 });
+      yArc.value = withSpring(yFan, { damping: 16, stiffness: 180 });
+      runOnJS(endDrag)();
     });
 
   const tap = Gesture.Tap()
@@ -205,16 +271,23 @@ function HandCard({
     top: HAND_H_PADDING,
     left: 0,
     transform: [
-      { translateX: home.value + tx.value },
-      { translateY: ty.value },
+      { translateX: home.value + tx.value + shake.value },
+      { translateY: ty.value + yArc.value },
+      { rotate: `${rot.value}deg` },
       { scale: scale.value },
     ],
     zIndex: z.value,
   }));
 
+  const liftStyle = useAnimatedStyle(() => ({
+    opacity: liftOpacity.value * 0.45,
+  }));
+
   return (
     <GestureDetector gesture={gesture}>
       <Animated.View style={animStyle}>
+        {/* Soft shadow puff under lifted card */}
+        <Animated.View style={[styles.lift, liftStyle]} pointerEvents="none" />
         <GameCard card={card} selected={selected} />
       </Animated.View>
     </GestureDetector>
@@ -223,7 +296,6 @@ function HandCard({
 
 function computeStep(count: number, screenW: number): number {
   if (count <= 1) return CARD_MAX_STEP;
-  // Aim to fit cards within most of the screen width with some padding.
   const usable = screenW - CARD_W - 24;
   const fit = usable / (count - 1);
   return Math.max(CARD_MIN_STEP, Math.min(CARD_MAX_STEP, fit));
@@ -233,5 +305,14 @@ const styles = StyleSheet.create({
   container: {
     alignSelf: 'center',
     position: 'relative',
+  },
+  lift: {
+    position: 'absolute',
+    top: CARD_H - 6,
+    left: 6,
+    right: 6,
+    height: 18,
+    borderRadius: 40,
+    backgroundColor: '#000',
   },
 });

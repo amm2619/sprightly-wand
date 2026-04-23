@@ -442,6 +442,7 @@ export default function TTTTable({ route, navigation }: Props) {
                       id={`ttt-staged-${i}`}
                       target={{ kind: 'staged', stagedIndex: i }}
                       enabled={mode === 'lay' && isMyTurn && !!hand?.hasDrawn && !busy}
+                      ghost
                     >
                       <PhaseSlot
                         slot={{

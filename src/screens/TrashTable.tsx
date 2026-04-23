@@ -351,6 +351,7 @@ function SlotGrid({
                 id={`trash-slot-${i}`}
                 target={{ kind: 'trashSlot', slotIndex: i }}
                 enabled={!!heldCard && !faceUp && canPlace}
+                ghost
               >
                 {slotInner}
               </DropZoneView>

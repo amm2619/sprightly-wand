@@ -645,6 +645,7 @@ export default function Table({ route, navigation }: Props) {
                   id={`my-slot-${i}`}
                   target={{ kind: 'slot', slotIndex: i }}
                   enabled={mode === 'lay' && isMyTurn && !!hand?.hasDrawn && !busy}
+                  ghost
                 >
                   <PhaseSlot
                     slot={slotInfo}

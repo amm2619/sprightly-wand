@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useMemo, useRef, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import type { Card as Phase10Card } from '../games/phase10/types';
 import type { StdCard } from '../games/standard/types';
 
@@ -26,6 +35,7 @@ export type DropZone = {
 };
 
 type Handler = (card: AnyDragCard, target: DropTarget) => void;
+type PulseCb = (kind: 'success' | 'fail') => void;
 
 type DragContextValue = {
   register: (zone: DropZone) => void;
@@ -33,6 +43,17 @@ type DragContextValue = {
   zoneAt: (x: number, y: number) => DropZone | null;
   onDrop: Handler;
   setHandler: (h: Handler) => void;
+
+  // Polish: active drag state so zones can render hover/ghost.
+  activeCard: AnyDragCard | null;
+  setActiveCard: (c: AnyDragCard | null) => void;
+  dragX: SharedValue<number>;
+  dragY: SharedValue<number>;
+
+  // Pulse events: zones subscribe, dragger fires outcome.
+  registerPulse: (id: string, cb: PulseCb) => void;
+  unregisterPulse: (id: string) => void;
+  firePulse: (id: string, kind: 'success' | 'fail') => void;
 };
 
 const Ctx = createContext<DragContextValue | null>(null);
@@ -40,6 +61,11 @@ const Ctx = createContext<DragContextValue | null>(null);
 export function DragProvider({ children }: { children: ReactNode }) {
   const zonesRef = useRef<Map<string, DropZone>>(new Map());
   const handlerRef = useRef<Handler>(() => {});
+  const pulseMapRef = useRef<Map<string, PulseCb>>(new Map());
+
+  const [activeCard, setActiveCardState] = useState<AnyDragCard | null>(null);
+  const dragX = useSharedValue(-1);
+  const dragY = useSharedValue(-1);
 
   const register = useCallback((zone: DropZone) => {
     zonesRef.current.set(zone.id, zone);
@@ -60,9 +86,32 @@ export function DragProvider({ children }: { children: ReactNode }) {
     handlerRef.current = h;
   }, []);
 
-  const value = useMemo(
-    () => ({ register, unregister, zoneAt, onDrop, setHandler }),
-    [register, unregister, zoneAt, onDrop, setHandler],
+  const setActiveCard = useCallback((c: AnyDragCard | null) => {
+    setActiveCardState(c);
+    if (c === null) {
+      dragX.value = -1;
+      dragY.value = -1;
+    }
+  }, [dragX, dragY]);
+
+  const registerPulse = useCallback((id: string, cb: PulseCb) => {
+    pulseMapRef.current.set(id, cb);
+  }, []);
+  const unregisterPulse = useCallback((id: string) => {
+    pulseMapRef.current.delete(id);
+  }, []);
+  const firePulse = useCallback((id: string, kind: 'success' | 'fail') => {
+    pulseMapRef.current.get(id)?.(kind);
+  }, []);
+
+  const value = useMemo<DragContextValue>(
+    () => ({
+      register, unregister, zoneAt, onDrop, setHandler,
+      activeCard, setActiveCard,
+      dragX, dragY,
+      registerPulse, unregisterPulse, firePulse,
+    }),
+    [register, unregister, zoneAt, onDrop, setHandler, activeCard, setActiveCard, dragX, dragY, registerPulse, unregisterPulse, firePulse],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
