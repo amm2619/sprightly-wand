@@ -19,6 +19,7 @@ import { DraggableHand } from '../components/DraggableHand';
 import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
 import { IconToggle as SharedIconToggle } from '../components/IconToggle';
+import { MyField } from '../components/MyField';
 import { PhaseSlot, PhaseSlotInfo } from '../components/PhaseSlot';
 import {
   isValidColorGroup,
@@ -479,7 +480,7 @@ export default function Table({ route, navigation }: Props) {
 
   if (roomLoaded && !room) {
     return (
-      <FeltBackground>
+      <FeltBackground variant="phase10">
         <SafeAreaView style={{ flex: 1 }}>
           <View style={s.center}>
             <Text style={[s.dim, { fontSize: 16, marginBottom: 16 }]}>
@@ -500,7 +501,7 @@ export default function Table({ route, navigation }: Props) {
   }
   if (!room || !myUid) {
     return (
-      <FeltBackground>
+      <FeltBackground variant="phase10">
         <SafeAreaView style={{ flex: 1 }}>
           <View style={s.center}><Text style={s.dim}>Loading…</Text></View>
         </SafeAreaView>
@@ -515,7 +516,7 @@ export default function Table({ route, navigation }: Props) {
     hand!.discard[hand!.discard.length - 1].kind !== 'skip';
 
   return (
-    <FeltBackground>
+    <FeltBackground variant="phase10">
     <SafeAreaView style={{ flex: 1 }}>
       {/* Top bar: room code + quit */}
       <View style={s.topBar}>
@@ -534,6 +535,7 @@ export default function Table({ route, navigation }: Props) {
         </View>
       )}
 
+      <View style={{ flex: 1 }}>
       {/* Opponent header */}
       <View style={s.playerHeader}>
         <Avatar
@@ -571,7 +573,7 @@ export default function Table({ route, navigation }: Props) {
       <View style={s.piles}>
         <Pressable onPress={isMyTurn && !hand?.hasDrawn && !busy ? onDrawDeck : undefined}>
           <View style={s.pile}>
-            <GameCard />
+            <GameCard backTheme="phase10" />
             <Text style={s.pileLabel}>Deck · {hand?.deck.length ?? 0}</Text>
           </View>
         </Pressable>
@@ -616,7 +618,9 @@ export default function Table({ route, navigation }: Props) {
                   : 'Your turn — draw a card'
                 : `Waiting for ${opp?.nickname ?? 'opponent'}…`}
       </Text>
+      </View>
 
+      <MyField>
       {/* My phase slots */}
       <View style={s.playerHeader}>
         <Avatar
@@ -744,6 +748,7 @@ export default function Table({ route, navigation }: Props) {
           </>
         )}
       </View>
+      </MyField>
 
       {/* Modals */}
       {showHandOver && !showGameOver && (

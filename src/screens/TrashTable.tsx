@@ -9,6 +9,7 @@ import { useDragCtx, type DropTarget } from '../components/DragContext';
 import { DraggableCard } from '../components/DraggableCard';
 import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
+import { MyField } from '../components/MyField';
 import { canPlaceAtSlot, slotLabel } from '../games/trash/rules';
 import { StdCard } from '../games/standard/types';
 import { RootStackParamList } from '../navigation/types';
@@ -112,7 +113,7 @@ export default function TrashTable({ route, navigation }: Props) {
 
   if (roomLoaded && !room) {
     return (
-      <FeltBackground><SafeAreaView style={{ flex: 1 }}>
+      <FeltBackground variant="trash"><SafeAreaView style={{ flex: 1 }}>
         <View style={s.center}>
           <Text style={s.dim}>Room {roomCode} doesn't exist anymore.</Text>
           <Button label="Back to home" variant="primary" size="lg" onPress={() => navigation.popToTop()} />
@@ -122,7 +123,7 @@ export default function TrashTable({ route, navigation }: Props) {
   }
   if (!room || !myUid) {
     return (
-      <FeltBackground><SafeAreaView style={{ flex: 1 }}>
+      <FeltBackground variant="trash"><SafeAreaView style={{ flex: 1 }}>
         <View style={s.center}><Text style={s.dim}>Loading…</Text></View>
       </SafeAreaView></FeltBackground>
     );
@@ -132,7 +133,7 @@ export default function TrashTable({ route, navigation }: Props) {
   const gameOver = room.status === 'gameOver';
 
   return (
-    <FeltBackground>
+    <FeltBackground variant="trash">
       <SafeAreaView style={{ flex: 1 }}>
         <View style={s.topBar}>
           <Text style={s.topBarCode}>ROOM · {roomCode} · TRASH</Text>
@@ -141,6 +142,7 @@ export default function TrashTable({ route, navigation }: Props) {
           </Pressable>
         </View>
 
+        <View style={{ flex: 1 }}>
         {/* Opponent offline banner */}
         {opp && !opp.connected && (
           <View style={s.offlineBanner}>
@@ -169,7 +171,7 @@ export default function TrashTable({ route, navigation }: Props) {
             onPress={isMyTurn && !hand?.held && !busy ? () => doAction(() => drawTrashDeck(roomCode)) : undefined}
             style={s.pile}
           >
-            <GameCard />
+            <GameCard backTheme="trash" />
             <Text style={s.pileLabel}>Deck · {hand?.deck?.length ?? 0}</Text>
           </Pressable>
 
@@ -219,7 +221,9 @@ export default function TrashTable({ route, navigation }: Props) {
                 : 'Your turn — draw a card'
               : `Waiting for ${opp?.nickname ?? 'opponent'}…`}
         </Text>
+        </View>
 
+        <MyField>
         {/* My slots */}
         <View style={s.playerBlock}>
           <PlayerHeader
@@ -251,6 +255,7 @@ export default function TrashTable({ route, navigation }: Props) {
             disabled={!isMyTurn || !hand?.held || busy}
           />
         </View>
+        </MyField>
 
         {/* Modals */}
         {roundOver && !gameOver && (
@@ -341,7 +346,7 @@ function SlotGrid({
                 )}
                 {faceUp
                   ? <GameCard card={slotCard!} small />
-                  : <GameCard small />}
+                  : <GameCard small backTheme="trash" />}
               </Pressable>
             );
             if (opponent) return <View key={i}>{slotInner}</View>;

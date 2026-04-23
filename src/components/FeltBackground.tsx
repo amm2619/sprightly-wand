@@ -3,17 +3,48 @@ import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { theme } from '../theme/colors';
 
-/** Full-screen background: deep felt gradient + corner vignettes + subtle dot grid. */
-export function FeltBackground({ children }: { children: ReactNode }) {
+export type FeltVariant = 'phase10' | 'trash' | 'ttt';
+
+type Props = {
+  children: ReactNode;
+  variant?: FeltVariant;
+};
+
+type Palette = {
+  stops: [string, string, string, string];
+  base: string;
+};
+
+const PALETTES: Record<FeltVariant, Palette> = {
+  // Classic Phase 10 — emerald felt
+  phase10: {
+    stops: ['#21472f', '#1b3d28', '#17321f', '#112716'],
+    base:  '#1b3d2a',
+  },
+  // Trash — deeper teal/navy card table
+  trash: {
+    stops: ['#1a4a58', '#143e4c', '#0f2f3b', '#0a2330'],
+    base:  '#143e4c',
+  },
+  // 3 to 13 — burgundy rummy parlor
+  ttt: {
+    stops: ['#4a1f3a', '#3a172e', '#2d1022', '#1f0916'],
+    base:  '#3a172e',
+  },
+};
+
+/** Full-screen background: deep felt gradient + corner vignettes + speckle. */
+export function FeltBackground({ children, variant = 'phase10' }: Props) {
+  const palette = PALETTES[variant];
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: palette.base }]}>
       <LinearGradient
-        colors={['#21472f', '#1b3d28', '#17321f', '#112716']}
+        colors={palette.stops}
         locations={[0, 0.45, 0.8, 1]}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Corner vignettes to darken the edges toward the center. */}
+      {/* Corner vignettes */}
       <LinearGradient
         pointerEvents="none"
         colors={['rgba(0,0,0,0.55)', 'transparent']}
@@ -43,7 +74,7 @@ export function FeltBackground({ children }: { children: ReactNode }) {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Subtle speckle field — drawn once, suggests felt texture. */}
+      {/* Speckle — same pattern across variants for consistency */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         {SPECKLES.map((s, i) => (
           <View
@@ -66,7 +97,6 @@ export function FeltBackground({ children }: { children: ReactNode }) {
   );
 }
 
-/** Deterministic speckle positions so the felt looks the same every render. */
 const SPECKLES: { x: number; y: number; r: number; light: boolean }[] = (() => {
   const out: { x: number; y: number; r: number; light: boolean }[] = [];
   let seed = 1337;

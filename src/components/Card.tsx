@@ -10,12 +10,16 @@ export const CARD_H = 98;
 
 export type AnyCard = Phase10CardT | StdCard;
 
+export type CardBackTheme = 'phase10' | 'trash' | 'ttt';
+
 type Props = {
   card?: AnyCard;
   selected?: boolean;
   dimmed?: boolean;
   small?: boolean;
   onPress?: () => void;
+  /** When rendering a face-down card (card undefined), controls back pattern. */
+  backTheme?: CardBackTheme;
 };
 
 /** Bright → deep gradient pair per suit for the card backdrop. */
@@ -34,7 +38,7 @@ const SUIT_GRAD: Record<SuitColor, [string, string]> = {
   yellow: [SUIT_PALETTE.yellow.base, SUIT_PALETTE.yellow.deep],
 };
 
-export function GameCard({ card, selected, dimmed, small, onPress }: Props) {
+export function GameCard({ card, selected, dimmed, small, onPress, backTheme }: Props) {
   const scale = useLayoutScale();
   const sizeMult = small ? 0.72 : 1;
   const w = CARD_W * sizeMult * scale;
@@ -50,7 +54,7 @@ export function GameCard({ card, selected, dimmed, small, onPress }: Props) {
       ]}
     >
       <View style={[styles.card, selected && styles.cardSelectedInner]}>
-        {renderFace(card, w, h)}
+        {renderFace(card, w, h, backTheme)}
         <View pointerEvents="none" style={styles.gloss} />
       </View>
     </View>
@@ -66,16 +70,43 @@ export function GameCard({ card, selected, dimmed, small, onPress }: Props) {
   ) : content;
 }
 
-function renderFace(card: AnyCard | undefined, w: number, h: number) {
+/** Back-palette lookup — frame + accent + glyph per game. */
+const BACK_PALETTES: Record<CardBackTheme, {
+  grad: [string, string];
+  frame: string;
+  accent: string;
+  glyph: string;
+}> = {
+  phase10: {
+    grad:   ['#1a4d3a', '#0b2e22'],
+    frame:  'rgba(245,195,75,0.35)',
+    accent: 'rgba(245,195,75,0.2)',
+    glyph:  '✦',
+  },
+  trash: {
+    grad:   ['#163d4f', '#081a24'],
+    frame:  'rgba(110,231,255,0.35)',
+    accent: 'rgba(110,231,255,0.2)',
+    glyph:  '◆',
+  },
+  ttt: {
+    grad:   ['#3a172e', '#1a0812'],
+    frame:  'rgba(249,168,212,0.35)',
+    accent: 'rgba(249,168,212,0.2)',
+    glyph:  '♦',
+  },
+};
+
+function renderFace(card: AnyCard | undefined, w: number, h: number, backTheme: CardBackTheme = 'phase10') {
   if (!card) {
+    const bp = BACK_PALETTES[backTheme];
     return (
-      <LinearGradient
-        colors={['#1a4d3a', '#0b2e22']}
-        style={styles.face}
-      >
-        <View style={styles.backBorder}>
-          <View style={styles.backDiamond} />
-          <Text style={[styles.backMark, { fontSize: w * 0.28 }]}>✦</Text>
+      <LinearGradient colors={bp.grad} style={styles.face}>
+        <View style={[styles.backBorder, { borderColor: bp.frame }]}>
+          <View style={[styles.backDiamond, { borderColor: bp.accent }]} />
+          <Text style={[styles.backMark, { fontSize: w * 0.28, color: bp.frame }]}>
+            {bp.glyph}
+          </Text>
         </View>
       </LinearGradient>
     );

@@ -10,6 +10,7 @@ import { useDragCtx, type DropTarget } from '../components/DragContext';
 import { DraggableHand } from '../components/DraggableHand';
 import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
+import { MyField } from '../components/MyField';
 import { rankLabel, StdCard, Suit } from '../games/standard/types';
 import { GroupKind, isValidRun, isValidSet, LaidGroup } from '../games/ttt/rules';
 import { IconToggle } from '../components/IconToggle';
@@ -287,7 +288,7 @@ export default function TTTTable({ route, navigation }: Props) {
 
   if (roomLoaded && !room) {
     return (
-      <FeltBackground><SafeAreaView style={{ flex: 1 }}>
+      <FeltBackground variant="ttt"><SafeAreaView style={{ flex: 1 }}>
         <View style={s.center}>
           <Text style={s.dim}>Room {roomCode} doesn't exist anymore.</Text>
           <Button label="Back to home" variant="primary" size="lg" onPress={() => navigation.popToTop()} />
@@ -297,7 +298,7 @@ export default function TTTTable({ route, navigation }: Props) {
   }
   if (!room || !myUid) {
     return (
-      <FeltBackground><SafeAreaView style={{ flex: 1 }}>
+      <FeltBackground variant="ttt"><SafeAreaView style={{ flex: 1 }}>
         <View style={s.center}><Text style={s.dim}>Loading…</Text></View>
       </SafeAreaView></FeltBackground>
     );
@@ -308,7 +309,7 @@ export default function TTTTable({ route, navigation }: Props) {
   const canGoOut = alreadyLaid;
 
   return (
-    <FeltBackground>
+    <FeltBackground variant="ttt">
       <SafeAreaView style={{ flex: 1 }}>
         <View style={s.topBar}>
           <View>
@@ -330,6 +331,7 @@ export default function TTTTable({ route, navigation }: Props) {
           </View>
         )}
 
+        <View style={{ flex: 1 }}>
         {/* Opponent row */}
         <View style={s.playerBlock}>
           <Avatar
@@ -355,7 +357,7 @@ export default function TTTTable({ route, navigation }: Props) {
         {/* Piles + wild banner */}
         <View style={s.midRow}>
           <Pressable onPress={isMyTurn && !hand?.hasDrawn && !busy ? () => doAction(() => drawFromDeckTTT(roomCode)) : undefined} style={s.pile}>
-            <GameCard />
+            <GameCard backTheme="ttt" />
             <Text style={s.pileLabel}>Deck · {hand?.deck?.length ?? 0}</Text>
           </Pressable>
           <DropZoneView
@@ -414,75 +416,9 @@ export default function TTTTable({ route, navigation }: Props) {
           </ScrollView>
         )}
 
-        {/* Lay staging panel */}
-        {mode === 'lay' && (
-          <View style={s.layPanel}>
-            <View style={s.layHeaderRow}>
-              <Text style={s.layTitle}>Build your melds</Text>
-              <Text style={s.laySelectedCount}>
-                {selected.size} card{selected.size === 1 ? '' : 's'} selected
-              </Text>
-            </View>
-            <Text style={s.layHint}>
-              Tap <Text style={{ color: theme.accent, fontWeight: '800' }}>+ Set</Text> or <Text style={{ color: theme.accent, fontWeight: '800' }}>+ Run</Text> to add a slot. Select 3+ cards, tap an empty slot to drop them in. Tap a filled slot to clear it.
-            </Text>
+        </View>
 
-            {/* Staged slots — drag cards in; tap to clear when filled */}
-            {layStaging.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.meldsScroll}>
-                {layStaging.map((g, i) => {
-                  const byId = new Map(myHand.map((c) => [c.id, c]));
-                  const cardsInSlot = g.cardIds
-                    .map((id) => byId.get(id))
-                    .filter(Boolean) as StdCard[];
-                  const filled = cardsInSlot.length > 0;
-                  return (
-                    <DropZoneView
-                      key={i}
-                      id={`ttt-staged-${i}`}
-                      target={{ kind: 'staged', stagedIndex: i }}
-                      enabled={mode === 'lay' && isMyTurn && !!hand?.hasDrawn && !busy}
-                      ghost
-                    >
-                      <PhaseSlot
-                        slot={{
-                          kind: g.kind,
-                          size: Math.max(3, cardsInSlot.length),
-                          label: filled ? `${g.kind} of ${cardsInSlot.length}` : 'Drop cards here',
-                        }}
-                        cards={filled ? cardsInSlot : undefined}
-                        target={!filled}
-                        onPress={() => onTapStagedSlot(i)}
-                      />
-                    </DropZoneView>
-                  );
-                })}
-              </ScrollView>
-            )}
-
-            <View style={s.layButtons}>
-              <Button label="+ Set" variant="secondary" size="md" onPress={() => onAddEmptySlot('set')} />
-              <Button label="+ Run" variant="secondary" size="md" onPress={() => onAddEmptySlot('run')} />
-              <Button
-                label="Confirm lay"
-                variant="primary"
-                size="md"
-                onPress={onConfirmLay}
-                disabled={!layStaging.some((g) => g.cardIds.length > 0) || busy}
-              />
-              <Button label="Cancel" variant="ghost" size="md" onPress={onCancelLay} />
-            </View>
-          </View>
-        )}
-        {mode === 'extend' && (
-          <View style={s.layPanel}>
-            <Text style={s.layHint}>Pick one card, then tap one of your melds above.</Text>
-            <View style={s.layButtons}>
-              <Button label="Cancel" variant="ghost" size="md" onPress={onCancelExtend} />
-            </View>
-          </View>
-        )}
-
+        <MyField>
         {/* My hand row */}
         <View style={s.handWrap}>
           <View style={s.handToolbar}>
@@ -548,6 +484,80 @@ export default function TTTTable({ route, navigation }: Props) {
             </>
           )}
         </View>
+        </MyField>
+
+        {/* Lay staging — modal so it doesn't shove the hand around */}
+        <Modal transparent animationType="slide" visible={mode === 'lay'} onRequestClose={onCancelLay}>
+          <View style={styles.layModalBg}>
+            <View style={styles.layModalCard}>
+              <View style={s.layHeaderRow}>
+                <Text style={s.layTitle}>Build your melds</Text>
+                <Text style={s.laySelectedCount}>
+                  {selected.size} card{selected.size === 1 ? '' : 's'} selected
+                </Text>
+              </View>
+              <Text style={s.layHint}>
+                Tap <Text style={{ color: theme.accent, fontWeight: '800' }}>+ Set</Text> or <Text style={{ color: theme.accent, fontWeight: '800' }}>+ Run</Text> to add a slot. Select 3+ cards, tap an empty slot to drop them in. Tap a filled slot to clear it.
+              </Text>
+              {layStaging.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.meldsScroll}>
+                  {layStaging.map((g, i) => {
+                    const byId = new Map(myHand.map((c) => [c.id, c]));
+                    const cardsInSlot = g.cardIds
+                      .map((id) => byId.get(id))
+                      .filter(Boolean) as StdCard[];
+                    const filled = cardsInSlot.length > 0;
+                    return (
+                      <DropZoneView
+                        key={i}
+                        id={`ttt-staged-${i}`}
+                        target={{ kind: 'staged', stagedIndex: i }}
+                        enabled={mode === 'lay' && isMyTurn && !!hand?.hasDrawn && !busy}
+                        ghost
+                      >
+                        <PhaseSlot
+                          slot={{
+                            kind: g.kind,
+                            size: Math.max(3, cardsInSlot.length),
+                            label: filled ? `${g.kind} of ${cardsInSlot.length}` : 'Drop cards here',
+                          }}
+                          cards={filled ? cardsInSlot : undefined}
+                          target={!filled}
+                          onPress={() => onTapStagedSlot(i)}
+                        />
+                      </DropZoneView>
+                    );
+                  })}
+                </ScrollView>
+              )}
+              <View style={s.layButtons}>
+                <Button label="+ Set" variant="secondary" size="md" onPress={() => onAddEmptySlot('set')} />
+                <Button label="+ Run" variant="secondary" size="md" onPress={() => onAddEmptySlot('run')} />
+                <Button
+                  label="Confirm lay"
+                  variant="primary"
+                  size="md"
+                  onPress={onConfirmLay}
+                  disabled={!layStaging.some((g) => g.cardIds.length > 0) || busy}
+                />
+                <Button label="Cancel" variant="ghost" size="md" onPress={onCancelLay} />
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Extend — same pattern as lay */}
+        <Modal transparent animationType="fade" visible={mode === 'extend'} onRequestClose={onCancelExtend}>
+          <View style={styles.layModalBg}>
+            <View style={styles.layModalCard}>
+              <Text style={s.layTitle}>Extend a meld</Text>
+              <Text style={s.layHint}>Pick one card, then tap one of your melds above.</Text>
+              <View style={s.layButtons}>
+                <Button label="Cancel" variant="ghost" size="md" onPress={onCancelExtend} />
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {showHandOver && !showGameOver && (
           <HandOverModal
@@ -744,6 +754,14 @@ const styles = StyleSheet.create({
   },
   error: { color: theme.danger, fontSize: 12, textAlign: 'center', paddingHorizontal: 16, marginTop: 4 },
   layPanel: { marginHorizontal: 12, marginTop: 6, padding: 10, borderRadius: 10, backgroundColor: theme.feltDark, borderWidth: 1, borderColor: theme.accent },
+  layModalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
+  layModalCard: {
+    backgroundColor: theme.feltDark,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    borderTopWidth: 1.5, borderColor: theme.accent,
+    padding: 16, gap: 6,
+    maxHeight: '70%',
+  },
   layTitle: { color: theme.ink, fontSize: 14, fontWeight: '700' },
   layHint: { color: theme.inkDim, fontSize: 11, marginTop: 4 },
   stagingList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
