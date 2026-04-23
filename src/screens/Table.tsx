@@ -70,9 +70,9 @@ function phaseSlots(phaseNum: number, variantId?: PhaseVariantId): PhaseSlotInfo
   (phase.sets ?? []).forEach((n) => out.push({ kind: 'set', size: n, label: `Set of ${n}` }));
   (phase.runs ?? []).forEach((n) => out.push({ kind: 'run', size: n, label: `Run of ${n}` }));
   (phase.colors ?? []).forEach((n) => out.push({ kind: 'color', size: n, label: `${n} of a color` }));
-  (phase.parities ?? []).forEach((n) => out.push({ kind: 'parity', size: n, label: `Even or odd of ${n}` }));
+  (phase.parities ?? []).forEach((n) => out.push({ kind: 'parity', size: n, label: `Even/odd of ${n}` }));
   (phase.colorRuns ?? []).forEach((n) => out.push({ kind: 'colorRun', size: n, label: `Color run of ${n}` }));
-  (phase.colorParities ?? []).forEach((n) => out.push({ kind: 'colorParity', size: n, label: `Color even/odd of ${n}` }));
+  (phase.colorParities ?? []).forEach((n) => out.push({ kind: 'colorParity', size: n, label: `Color E/O of ${n}` }));
   return out;
 }
 

@@ -24,18 +24,30 @@ type Props = {
   onPress?: () => void;
 };
 
+// Compact display names for the kind badge. The raw kind (e.g. 'colorParity')
+// upper-cases to 'COLORPARITY' which is too wide for the slot header.
+const KIND_BADGE: Record<PhaseSlotInfo['kind'], string> = {
+  set: 'SET',
+  run: 'RUN',
+  color: 'COLOR',
+  parity: 'PARITY',
+  colorRun: 'COLOR RUN',
+  colorParity: 'COLOR E/O',
+};
+
 export function PhaseSlot({ slot, cards, locked, target, highlighted, small, onPress }: Props) {
   const scale = useLayoutScale();
   const filled = !!cards && cards.length > 0;
   const minW = (small ? 112 : 130) * scale;
   const minH = (small ? 60 : 78) * scale;
+  const maxW = (small ? 140 : 158) * scale;
   const body = (
     <View style={[styles.outer, small && styles.outerSmall]}>
       <LinearGradient
         colors={filled || locked ? ['rgba(20,50,40,0.95)', 'rgba(8,28,22,0.95)'] : ['rgba(0,0,0,0.25)', 'rgba(0,0,0,0.35)']}
         style={[
           styles.inner,
-          { minWidth: minW, minHeight: minH },
+          { minWidth: minW, minHeight: minH, maxWidth: maxW },
           target && styles.innerTarget,
           highlighted && !target && styles.innerHi,
           locked && styles.innerLocked,
@@ -45,7 +57,7 @@ export function PhaseSlot({ slot, cards, locked, target, highlighted, small, onP
         {filled ? (
           <>
             <Text style={styles.kindBadge}>
-              {slot.kind.toUpperCase()} · {cards!.length}
+              {KIND_BADGE[slot.kind]} · {cards!.length}
             </Text>
             <View style={styles.cards}>
               {cards!.map((c, i) => (
@@ -57,8 +69,13 @@ export function PhaseSlot({ slot, cards, locked, target, highlighted, small, onP
           </>
         ) : (
           <>
-            <Text style={styles.kindBadge}>{slot.kind.toUpperCase()}</Text>
-            <Text style={[styles.label, small && styles.labelSmall]}>
+            <Text style={styles.kindBadge}>{KIND_BADGE[slot.kind]}</Text>
+            <Text
+              style={[styles.label, small && styles.labelSmall]}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {slot.label.toUpperCase()}
             </Text>
           </>
