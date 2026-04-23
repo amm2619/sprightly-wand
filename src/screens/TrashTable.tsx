@@ -5,6 +5,9 @@ import { AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
 import { GameCard } from '../components/Card';
+import { useDragCtx, type DropTarget } from '../components/DragContext';
+import { DraggableCard } from '../components/DraggableCard';
+import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
 import { canPlaceAtSlot, slotLabel } from '../games/trash/rules';
 import { StdCard } from '../games/standard/types';
@@ -94,6 +97,19 @@ export default function TrashTable({ route, navigation }: Props) {
     finally { setBusy(false); }
   };
 
+  // Drop handler for Trash: held card → own slot or discard.
+  const drag = useDragCtx();
+  useEffect(() => {
+    drag.setHandler((card, target: DropTarget) => {
+      if (!isMyTurn || busy || !hand?.held) return;
+      if (target.kind === 'trashSlot') {
+        doAction(() => placeTrashHeld(roomCode, target.slotIndex));
+      } else if (target.kind === 'discard') {
+        doAction(() => discardTrashHeld(roomCode));
+      }
+    });
+  }, [drag, isMyTurn, busy, hand, roomCode]);
+
   if (roomLoaded && !room) {
     return (
       <FeltBackground><SafeAreaView style={{ flex: 1 }}>
@@ -160,8 +176,8 @@ export default function TrashTable({ route, navigation }: Props) {
           <View style={s.heldSpot}>
             {hand?.held ? (
               <View style={s.heldWrap}>
-                <Text style={s.heldLabel}>PLAY →</Text>
-                <GameCard card={hand.held} selected />
+                <Text style={s.heldLabel}>DRAG →</Text>
+                <DraggableCard card={hand.held} selected disabled={!isMyTurn || busy} />
               </View>
             ) : (
               <View style={s.heldEmpty}>
@@ -170,19 +186,25 @@ export default function TrashTable({ route, navigation }: Props) {
             )}
           </View>
 
-          <Pressable
-            onPress={
-              isMyTurn && !hand?.held && hand?.discard?.length && !busy
-                ? () => doAction(() => drawTrashDiscard(roomCode))
-                : undefined
-            }
-            style={s.pile}
+          <DropZoneView
+            id="trash-discard"
+            target={{ kind: 'discard' }}
+            enabled={isMyTurn && !!hand?.held && !busy}
           >
-            {hand?.discard?.length
-              ? <GameCard card={hand.discard[hand.discard.length - 1]} />
-              : <View style={s.pileEmpty} />}
-            <Text style={s.pileLabel}>Discard</Text>
-          </Pressable>
+            <Pressable
+              onPress={
+                isMyTurn && !hand?.held && hand?.discard?.length && !busy
+                  ? () => doAction(() => drawTrashDiscard(roomCode))
+                  : undefined
+              }
+              style={s.pile}
+            >
+              {hand?.discard?.length
+                ? <GameCard card={hand.discard[hand.discard.length - 1]} />
+                : <View style={s.pileEmpty} />}
+              <Text style={s.pileLabel}>Discard</Text>
+            </Pressable>
+          </DropZoneView>
         </View>
 
         <Text
@@ -303,9 +325,8 @@ function SlotGrid({
             const canPlace = !!heldCard && !faceUp
               && canPlaceAtSlot(heldCard, i, roundSize, safeSlots);
             const targetable = !!onTapSlot && canPlace;
-            return (
+            const slotInner = (
               <Pressable
-                key={i}
                 onPress={targetable ? () => onTapSlot!(i) : undefined}
                 style={[
                   styles.slot,
@@ -322,6 +343,17 @@ function SlotGrid({
                   ? <GameCard card={slotCard!} small />
                   : <GameCard small />}
               </Pressable>
+            );
+            if (opponent) return <View key={i}>{slotInner}</View>;
+            return (
+              <DropZoneView
+                key={i}
+                id={`trash-slot-${i}`}
+                target={{ kind: 'trashSlot', slotIndex: i }}
+                enabled={!!heldCard && !faceUp && canPlace}
+              >
+                {slotInner}
+              </DropZoneView>
             );
           })}
         </View>

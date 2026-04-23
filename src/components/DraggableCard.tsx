@@ -10,12 +10,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import type { Card as CardType } from '../games/phase10/types';
 import { GameCard } from './Card';
-import { useDragCtx } from './DragContext';
+import { useDragCtx, type AnyDragCard } from './DragContext';
 
 type Props = {
-  card: CardType;
+  card: AnyDragCard;
   style?: ViewStyle;
   disabled?: boolean;
   selected?: boolean;

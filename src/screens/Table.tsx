@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
 import { GameCard } from '../components/Card';
 import { useDragCtx, type DropTarget } from '../components/DragContext';
-import { DraggableCard } from '../components/DraggableCard';
+import { DraggableHand } from '../components/DraggableHand';
 import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
 import { IconToggle as SharedIconToggle } from '../components/IconToggle';
@@ -84,15 +84,13 @@ export default function Table({ route, navigation }: Props) {
   const [myUid, setMyUid] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [mode, setMode] = useState<'normal' | 'lay' | 'hit' | 'arrange'>('normal');
+  const [mode, setMode] = useState<'normal' | 'lay' | 'hit'>('normal');
 
   // During lay mode: cards staged into each slot (parallel to phase slots).
   const [staged, setStaged] = useState<string[][]>([]);
 
   // User-controlled ordering of cards in hand. Reconciled with server hand.
   const [handOrder, setHandOrder] = useState<string[]>([]);
-  // Arrange mode: first tap picks a card, second tap on another card swaps.
-  const [swapPick, setSwapPick] = useState<string | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -466,22 +464,6 @@ export default function Table({ route, navigation }: Props) {
   };
   const onCancelHit = () => { setMode('normal'); setSelected(new Set()); setError(null); setWildPrompt(null); };
 
-  const onStartArrange = () => { setMode('arrange'); setSelected(new Set()); setSwapPick(null); setError(null); };
-  const onDoneArrange = () => { setMode('normal'); setSwapPick(null); setError(null); };
-  const onArrangeTap = (id: string) => {
-    if (swapPick === null) { setSwapPick(id); return; }
-    if (swapPick === id) { setSwapPick(null); return; }
-    setHandOrder((prev) => {
-      const a = prev.indexOf(swapPick);
-      const b = prev.indexOf(id);
-      if (a < 0 || b < 0) return prev;
-      const next = [...prev];
-      [next[a], next[b]] = [next[b], next[a]];
-      return next;
-    });
-    setSwapPick(null);
-  };
-
   const stagedIds = new Set(staged.flat());
 
   if (roomLoaded && !room) {
@@ -680,56 +662,22 @@ export default function Table({ route, navigation }: Props) {
       </View>
 
 
-      {/* My hand — tap-to-swap arrange + sort buttons */}
+      {/* My hand — drag to reorder, drag onto slots/melds/discard to act */}
       <View style={s.handWrap}>
         <View style={s.handToolbar}>
-          <IconToggle
-            icon="1·2·3"
-            onPress={() => { if (mode === 'arrange') setMode('normal'); sortByValue(); }}
-            disabled={mode === 'lay' || mode === 'hit'}
-          />
-          <IconToggle
-            icon="●●●"
-            onPress={() => { if (mode === 'arrange') setMode('normal'); sortByColor(); }}
-            disabled={mode === 'lay' || mode === 'hit'}
-          />
-          <IconToggle
-            active={mode === 'arrange'}
-            icon={mode === 'arrange' ? '✓' : '⇄'}
-            onPress={mode === 'arrange' ? onDoneArrange : onStartArrange}
-            disabled={mode === 'lay' || mode === 'hit'}
-          />
+          <IconToggle icon="1·2·3" onPress={sortByValue} disabled={mode === 'lay' || mode === 'hit'} />
+          <IconToggle icon="●●●" onPress={sortByColor} disabled={mode === 'lay' || mode === 'hit'} />
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.hand}
-        >
-          {orderedHand.filter((c) => !stagedIds.has(c.id)).map((c, i) => {
-            const isPicked = mode === 'arrange' && swapPick === c.id;
-            const dragDisabled = mode === 'arrange' || !isMyTurn || busy;
-            return (
-              <View key={c.id} style={[s.handCard, i > 0 && s.handCardOverlap]}>
-                {dragDisabled ? (
-                  <Pressable
-                    onPress={() => {
-                      if (mode === 'arrange') onArrangeTap(c.id);
-                      else toggleSelect(c.id);
-                    }}
-                  >
-                    <GameCard card={c} selected={selected.has(c.id) || isPicked} />
-                  </Pressable>
-                ) : (
-                  <DraggableCard
-                    card={c}
-                    selected={selected.has(c.id) || isPicked}
-                    onTap={() => toggleSelect(c.id)}
-                  />
-                )}
-              </View>
-            );
-          })}
-        </ScrollView>
+        <DraggableHand
+          cards={orderedHand.filter((c) => !stagedIds.has(c.id))}
+          selectedIds={selected}
+          onTap={toggleSelect}
+          onReorder={(newVisibleOrder) => {
+            const stagedList = Array.from(stagedIds);
+            setHandOrder([...newVisibleOrder, ...stagedList]);
+          }}
+          disabled={!isMyTurn || busy}
+        />
       </View>
 
       {/* Action bar */}
@@ -778,11 +726,6 @@ export default function Table({ route, navigation }: Props) {
             </Text>
             <Button label="Cancel" variant="ghost" size="lg" onPress={onCancelHit} />
           </>
-        )}
-        {mode === 'arrange' && (
-          <Text style={[s.dim, { flex: 1, textAlign: 'center' }]}>
-            Tap two cards to swap. Tap ⇄ Done when finished.
-          </Text>
         )}
       </View>
 

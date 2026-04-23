@@ -1,9 +1,19 @@
 import { createContext, useCallback, useContext, useMemo, useRef, type ReactNode } from 'react';
-import type { Card } from '../games/phase10/types';
+import type { Card as Phase10Card } from '../games/phase10/types';
+import type { StdCard } from '../games/standard/types';
+
+export type AnyDragCard = Phase10Card | StdCard;
 
 export type DropTarget =
+  // Phase 10 targets
   | { kind: 'slot'; slotIndex: number }
   | { kind: 'hit'; ownerUid: string; groupIndex: number }
+  // 3-to-13 targets
+  | { kind: 'staged'; stagedIndex: number }
+  | { kind: 'extend'; groupIndex: number }
+  // Trash targets
+  | { kind: 'trashSlot'; slotIndex: number }
+  // Shared
   | { kind: 'discard' };
 
 export type DropZone = {
@@ -15,7 +25,7 @@ export type DropZone = {
   h: number;
 };
 
-type Handler = (card: Card, target: DropTarget) => void;
+type Handler = (card: AnyDragCard, target: DropTarget) => void;
 
 type DragContextValue = {
   register: (zone: DropZone) => void;

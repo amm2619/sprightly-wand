@@ -6,6 +6,9 @@ import { AppState, Modal, Pressable, ScrollView, StyleSheet, Text, View } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
 import { GameCard } from '../components/Card';
+import { useDragCtx, type DropTarget } from '../components/DragContext';
+import { DraggableHand } from '../components/DraggableHand';
+import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
 import { rankLabel, StdCard, Suit } from '../games/standard/types';
 import { GroupKind, isValidRun, isValidSet, LaidGroup } from '../games/ttt/rules';
@@ -237,6 +240,51 @@ export default function TTTTable({ route, navigation }: Props) {
     doAction(async () => { await discardTTT(roomCode, id); setSelected(new Set()); });
   };
 
+  // Drop handlers for drag-and-drop.
+  const onDropStaged = (card: StdCard, stagedIdx: number) => {
+    setLayStaging((prev) => {
+      const target = prev[stagedIdx];
+      if (!target) return prev;
+      if (target.cardIds.includes(card.id)) return prev;
+      const next = prev.map((g, i) => {
+        if (i === stagedIdx) return { ...g, cardIds: [...g.cardIds, card.id] };
+        // Remove from any other slot
+        return { ...g, cardIds: g.cardIds.filter((id) => id !== card.id) };
+      });
+      setError(null);
+      return next;
+    });
+  };
+
+  const onDropExtend = (card: StdCard, groupIdx: number) => {
+    doAction(async () => {
+      await extendOwnMeld(roomCode, groupIdx, card.id);
+      setSelected(new Set());
+      setMode('normal');
+    });
+  };
+
+  const onDropDiscardTTT = (card: StdCard) => {
+    doAction(async () => {
+      await discardTTT(roomCode, card.id);
+      setSelected(new Set());
+    });
+  };
+
+  const drag = useDragCtx();
+  useEffect(() => {
+    drag.setHandler((card, target: DropTarget) => {
+      if (!isMyTurn || busy) return;
+      if (target.kind === 'staged' && mode === 'lay') {
+        onDropStaged(card as StdCard, target.stagedIndex);
+      } else if (target.kind === 'extend' && mode === 'extend') {
+        onDropExtend(card as StdCard, target.groupIndex);
+      } else if (target.kind === 'discard' && mode === 'normal' && hand?.hasDrawn) {
+        onDropDiscardTTT(card as StdCard);
+      }
+    });
+  }, [drag, mode, isMyTurn, busy, hand, roomCode, layStaging]);
+
   if (roomLoaded && !room) {
     return (
       <FeltBackground><SafeAreaView style={{ flex: 1 }}>
@@ -310,15 +358,21 @@ export default function TTTTable({ route, navigation }: Props) {
             <GameCard />
             <Text style={s.pileLabel}>Deck · {hand?.deck?.length ?? 0}</Text>
           </Pressable>
-          <Pressable
-            onPress={isMyTurn && !hand?.hasDrawn && hand?.discard?.length && !busy ? () => doAction(() => drawFromDiscardTTT(roomCode)) : undefined}
-            style={s.pile}
+          <DropZoneView
+            id="ttt-discard"
+            target={{ kind: 'discard' }}
+            enabled={mode === 'normal' && isMyTurn && !!hand?.hasDrawn && !busy}
           >
-            {hand?.discard?.length
-              ? <GameCard card={hand.discard[hand.discard.length - 1]} />
-              : <View style={s.pileEmpty} />}
-            <Text style={s.pileLabel}>Discard</Text>
-          </Pressable>
+            <Pressable
+              onPress={isMyTurn && !hand?.hasDrawn && hand?.discard?.length && !busy ? () => doAction(() => drawFromDiscardTTT(roomCode)) : undefined}
+              style={s.pile}
+            >
+              {hand?.discard?.length
+                ? <GameCard card={hand.discard[hand.discard.length - 1]} />
+                : <View style={s.pileEmpty} />}
+              <Text style={s.pileLabel}>Discard</Text>
+            </Pressable>
+          </DropZoneView>
         </View>
 
         <Text
@@ -338,18 +392,24 @@ export default function TTTTable({ route, navigation }: Props) {
                   : `Waiting for ${opp?.nickname ?? 'opponent'}…`}
         </Text>
 
-        {/* My laid melds — visible whenever laid, tappable in extend mode */}
+        {/* My laid melds — visible whenever laid, drag-target in extend mode */}
         {alreadyLaid && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.meldsScroll}>
             {myLaid.map((g, i) => (
-              <PhaseSlot
+              <DropZoneView
                 key={i}
-                slot={{ kind: g.kind, size: g.cards.length, label: `${g.kind} of ${g.cards.length}` }}
-                cards={g.cards}
-                locked
-                target={mode === 'extend'}
-                onPress={mode === 'extend' ? () => onTapMyMeld(i) : undefined}
-              />
+                id={`ttt-extend-${i}`}
+                target={{ kind: 'extend', groupIndex: i }}
+                enabled={mode === 'extend' && isMyTurn && !!hand?.hasDrawn && !busy}
+              >
+                <PhaseSlot
+                  slot={{ kind: g.kind, size: g.cards.length, label: `${g.kind} of ${g.cards.length}` }}
+                  cards={g.cards}
+                  locked
+                  target={mode === 'extend'}
+                  onPress={mode === 'extend' ? () => onTapMyMeld(i) : undefined}
+                />
+              </DropZoneView>
             ))}
           </ScrollView>
         )}
@@ -367,7 +427,7 @@ export default function TTTTable({ route, navigation }: Props) {
               Tap <Text style={{ color: theme.accent, fontWeight: '800' }}>+ Set</Text> or <Text style={{ color: theme.accent, fontWeight: '800' }}>+ Run</Text> to add a slot. Select 3+ cards, tap an empty slot to drop them in. Tap a filled slot to clear it.
             </Text>
 
-            {/* Staged slots (same visual as Phase 10) */}
+            {/* Staged slots — drag cards in; tap to clear when filled */}
             {layStaging.length > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.meldsScroll}>
                 {layStaging.map((g, i) => {
@@ -377,18 +437,23 @@ export default function TTTTable({ route, navigation }: Props) {
                     .filter(Boolean) as StdCard[];
                   const filled = cardsInSlot.length > 0;
                   return (
-                    <PhaseSlot
+                    <DropZoneView
                       key={i}
-                      slot={{
-                        kind: g.kind,
-                        size: Math.max(3, cardsInSlot.length),
-                        label: filled ? `${g.kind} of ${cardsInSlot.length}` : 'Tap to fill',
-                      }}
-                      cards={filled ? cardsInSlot : undefined}
-                      locked={filled}
-                      target={!filled && selected.size >= 3}
-                      onPress={() => onTapStagedSlot(i)}
-                    />
+                      id={`ttt-staged-${i}`}
+                      target={{ kind: 'staged', stagedIndex: i }}
+                      enabled={mode === 'lay' && isMyTurn && !!hand?.hasDrawn && !busy}
+                    >
+                      <PhaseSlot
+                        slot={{
+                          kind: g.kind,
+                          size: Math.max(3, cardsInSlot.length),
+                          label: filled ? `${g.kind} of ${cardsInSlot.length}` : 'Drop cards here',
+                        }}
+                        cards={filled ? cardsInSlot : undefined}
+                        target={!filled}
+                        onPress={() => onTapStagedSlot(i)}
+                      />
+                    </DropZoneView>
                   );
                 })}
               </ScrollView>
@@ -435,13 +500,16 @@ export default function TTTTable({ route, navigation }: Props) {
             <Text style={s.playerName}>{me?.nickname ?? 'You'}  {myUid && room.seriesWins?.[myUid] ? `🏆${room.seriesWins[myUid]}` : ''}</Text>
             <Text style={s.playerMeta}>{myHand.length} cards · {myUid ? room.progress?.[myUid]?.totalScore ?? 0 : 0} pts total</Text>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hand}>
-            {orderedHand.filter((c) => !stagedIds.has(c.id)).map((c, i) => (
-              <Pressable key={c.id} onPress={() => toggle(c.id)} style={[s.handCard, i > 0 && s.handCardOverlap]}>
-                <GameCard card={c} selected={selected.has(c.id)} />
-              </Pressable>
-            ))}
-          </ScrollView>
+          <DraggableHand
+            cards={orderedHand.filter((c) => !stagedIds.has(c.id))}
+            selectedIds={selected}
+            onTap={toggle}
+            onReorder={(newVisibleOrder) => {
+              const stagedList = Array.from(stagedIds);
+              setHandOrder([...newVisibleOrder, ...stagedList]);
+            }}
+            disabled={!isMyTurn || busy}
+          />
         </View>
 
         <View style={s.actionBar}>
