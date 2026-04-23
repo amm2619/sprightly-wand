@@ -1,6 +1,16 @@
 import { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import Svg, { Defs, LinearGradient, Polygon, Rect, Stop, G } from 'react-native-svg';
+import { StyleSheet } from 'react-native';
+import Svg, {
+  Circle,
+  Defs,
+  G,
+  LinearGradient,
+  Path,
+  Polygon,
+  Rect,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -16,9 +26,8 @@ type Props = {
 };
 
 /**
- * BTS-inspired door/shield silhouette built from two mirrored trapezoids, each
- * layered with stylized card slivers in the four Phase 10 colors. Designed as
- * the Sprightly Wand visual mark.
+ * Sprightly Wand visual mark: a K card and an A card fanned together with
+ * a cute heart where they meet. Cream cards, rose typography, gold shield.
  */
 export function WandLogo({ size = 120, animated = true }: Props) {
   const pulse = useSharedValue(0);
@@ -39,79 +48,96 @@ export function WandLogo({ size = 120, animated = true }: Props) {
     shadowOpacity: 0.35 + pulse.value * 0.35,
   }));
 
-  // 200×200 SVG canvas. Two mirrored trapezoids, wide at top, narrowing toward
-  // the center at bottom, forming an "open door" opening downward.
-  // Each trapezoid hosts three card slivers angled outward.
   return (
     <Animated.View style={[styles.wrap, { width: size, height: size }, glow]}>
-      <Svg width={size} height={size} viewBox="0 0 200 200">
+      <Svg width={size} height={size} viewBox="0 0 1024 1024">
         <Defs>
-          <LinearGradient id="goldBg" x1="0" y1="0" x2="0" y2="1">
+          <LinearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor="#f5c34b" />
             <Stop offset="1" stopColor="#b5891f" />
           </LinearGradient>
-          <LinearGradient id="leftGrad" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#0e2317" />
-            <Stop offset="1" stopColor="#1b3d2a" />
+          <LinearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#ffffff" />
+            <Stop offset="1" stopColor="#f0e8d4" />
           </LinearGradient>
-          <LinearGradient id="rightGrad" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#1b3d2a" />
-            <Stop offset="1" stopColor="#0e2317" />
-          </LinearGradient>
-          <LinearGradient id="red" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#e84646" />
-            <Stop offset="1" stopColor="#a01c1c" />
-          </LinearGradient>
-          <LinearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#3b7cd1" />
-            <Stop offset="1" stopColor="#13408a" />
-          </LinearGradient>
-          <LinearGradient id="green" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#41a653" />
-            <Stop offset="1" stopColor="#1f6e2d" />
-          </LinearGradient>
-          <LinearGradient id="yellow" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#e6bd48" />
-            <Stop offset="1" stopColor="#a98220" />
+          <LinearGradient id="heart" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#ff4d6d" />
+            <Stop offset="1" stopColor="#c81d4a" />
           </LinearGradient>
         </Defs>
 
-        {/* Gold shield disc backdrop */}
+        {/* Gold hex shield */}
         <Polygon
-          points="100,8 192,60 180,160 100,192 20,160 8,60"
-          fill="url(#goldBg)"
+          points="512,50 930,295 930,729 512,974 94,729 94,295"
+          fill="url(#gold)"
           stroke="#1b3d2a"
-          strokeWidth="3"
+          strokeWidth="14"
         />
 
-        {/* Left trapezoid */}
-        <Polygon points="30,40 95,40 90,160 52,160" fill="url(#leftGrad)" stroke="#0b2015" strokeWidth="2" />
-        {/* Card slivers inside left trapezoid — red, blue, green */}
-        <G transform="translate(62 100) rotate(-14)">
-          <Rect x="-24" y="-42" width="18" height="70" rx="3" fill="url(#red)" stroke="#fff" strokeOpacity="0.35" strokeWidth="1" />
-        </G>
-        <G transform="translate(62 100) rotate(-2)">
-          <Rect x="-9" y="-42" width="18" height="70" rx="3" fill="url(#blue)" stroke="#fff" strokeOpacity="0.35" strokeWidth="1" />
-        </G>
-        <G transform="translate(62 100) rotate(10)">
-          <Rect x="6" y="-42" width="18" height="70" rx="3" fill="url(#green)" stroke="#fff" strokeOpacity="0.35" strokeWidth="1" />
+        {/* Sparkles */}
+        <Polygon
+          transform="translate(260 260)"
+          points="0,-28 6,-6 28,0 6,6 0,28 -6,6 -28,0 -6,-6"
+          fill="#ffffff"
+          fillOpacity="0.9"
+        />
+        <Polygon
+          transform="translate(760 300) scale(0.6)"
+          points="0,-28 6,-6 28,0 6,6 0,28 -6,6 -28,0 -6,-6"
+          fill="#ffffff"
+          fillOpacity="0.85"
+        />
+
+        {/* Left card: K */}
+        <G transform="translate(380 540) rotate(-12)">
+          <Rect
+            x="-160" y="-230" width="320" height="460" rx="32" ry="32"
+            fill="url(#card)" stroke="#c81d4a" strokeWidth="5"
+          />
+          <SvgText
+            x="-120" y="-150"
+            fontFamily="Georgia"
+            fontSize="78" fontWeight="900"
+            fill="#c81d4a"
+          >K</SvgText>
+          <SvgText
+            x="0" y="100"
+            fontFamily="Georgia"
+            fontSize="340" fontWeight="900"
+            fill="#c81d4a" textAnchor="middle"
+          >K</SvgText>
         </G>
 
-        {/* Right trapezoid (mirror) */}
-        <Polygon points="105,40 170,40 148,160 110,160" fill="url(#rightGrad)" stroke="#0b2015" strokeWidth="2" />
-        {/* Card slivers inside right trapezoid — yellow, red, blue */}
-        <G transform="translate(138 100) rotate(-10)">
-          <Rect x="-24" y="-42" width="18" height="70" rx="3" fill="url(#yellow)" stroke="#fff" strokeOpacity="0.35" strokeWidth="1" />
-        </G>
-        <G transform="translate(138 100) rotate(2)">
-          <Rect x="-9" y="-42" width="18" height="70" rx="3" fill="url(#red)" stroke="#fff" strokeOpacity="0.35" strokeWidth="1" />
-        </G>
-        <G transform="translate(138 100) rotate(14)">
-          <Rect x="6" y="-42" width="18" height="70" rx="3" fill="url(#blue)" stroke="#fff" strokeOpacity="0.35" strokeWidth="1" />
+        {/* Right card: A */}
+        <G transform="translate(644 540) rotate(12)">
+          <Rect
+            x="-160" y="-230" width="320" height="460" rx="32" ry="32"
+            fill="url(#card)" stroke="#c81d4a" strokeWidth="5"
+          />
+          <SvgText
+            x="-120" y="-150"
+            fontFamily="Georgia"
+            fontSize="78" fontWeight="900"
+            fill="#c81d4a"
+          >A</SvgText>
+          <SvgText
+            x="0" y="100"
+            fontFamily="Georgia"
+            fontSize="340" fontWeight="900"
+            fill="#c81d4a" textAnchor="middle"
+          >A</SvgText>
         </G>
 
-        {/* Small wand-spark at the center top */}
-        <Polygon points="100,18 104,34 118,30 108,42 118,50 104,48 100,64 96,48 82,50 92,42 82,30 96,34" fill="#fff" fillOpacity="0.95" />
+        {/* Heart where cards meet */}
+        <G transform="translate(512 420)">
+          <Circle cx="0" cy="0" r="74" fill="#ffffff" fillOpacity="0.12" />
+          <Path
+            transform="scale(1.8)"
+            d="M0,-18 C-18,-40 -55,-32 -55,-2 C-55,28 0,58 0,58 C0,58 55,28 55,-2 C55,-32 18,-40 0,-18 Z"
+            fill="url(#heart)"
+            stroke="#ffffff" strokeWidth="4"
+          />
+        </G>
       </Svg>
     </Animated.View>
   );

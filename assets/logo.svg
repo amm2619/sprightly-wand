@@ -9,64 +9,77 @@
       <stop offset="0" stop-color="#f5c34b"/>
       <stop offset="1" stop-color="#b5891f"/>
     </linearGradient>
-    <linearGradient id="leftGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0e2317"/>
-      <stop offset="1" stop-color="#1b3d2a"/>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f0e8d4"/>
     </linearGradient>
-    <linearGradient id="rightGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1b3d2a"/>
-      <stop offset="1" stop-color="#0e2317"/>
-    </linearGradient>
-    <linearGradient id="red" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#e84646"/>
-      <stop offset="1" stop-color="#a01c1c"/>
-    </linearGradient>
-    <linearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3b7cd1"/>
-      <stop offset="1" stop-color="#13408a"/>
-    </linearGradient>
-    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#41a653"/>
-      <stop offset="1" stop-color="#1f6e2d"/>
-    </linearGradient>
-    <linearGradient id="yellow" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#e6bd48"/>
-      <stop offset="1" stop-color="#a98220"/>
+    <linearGradient id="heart" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff4d6d"/>
+      <stop offset="1" stop-color="#c81d4a"/>
     </linearGradient>
   </defs>
 
   <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
 
-  <!-- Gold hex shield backdrop (centered at 512,512; scaled to fit ~820px wide) -->
-  <g transform="translate(512 512) scale(4.5)">
-    <polygon points="0,-92 92,-40 80,60 0,92 -80,60 -92,-40" fill="url(#gold)" stroke="#1b3d2a" stroke-width="3"/>
+  <polygon
+    points="512,50 930,295 930,729 512,974 94,729 94,295"
+    fill="url(#gold)"
+    stroke="#1b3d2a"
+    stroke-width="14"/>
 
-    <!-- Left trapezoid -->
-    <polygon points="-70,-60 -5,-60 -10,60 -48,60" fill="url(#leftGrad)" stroke="#0b2015" stroke-width="2"/>
-    <!-- Cards inside left trapezoid -->
-    <g transform="translate(-38 0) rotate(-14)">
-      <rect x="-24" y="-42" width="18" height="70" rx="3" fill="url(#red)" stroke="#fff" stroke-opacity="0.35" stroke-width="1"/>
-    </g>
-    <g transform="translate(-38 0) rotate(-2)">
-      <rect x="-9" y="-42" width="18" height="70" rx="3" fill="url(#blue)" stroke="#fff" stroke-opacity="0.35" stroke-width="1"/>
-    </g>
-    <g transform="translate(-38 0) rotate(10)">
-      <rect x="6" y="-42" width="18" height="70" rx="3" fill="url(#green)" stroke="#fff" stroke-opacity="0.35" stroke-width="1"/>
-    </g>
+  <polygon transform="translate(260 260)"
+           points="0,-28 6,-6 28,0 6,6 0,28 -6,6 -28,0 -6,-6"
+           fill="#ffffff" fill-opacity="0.9"/>
+  <polygon transform="translate(760 300) scale(0.6)"
+           points="0,-28 6,-6 28,0 6,6 0,28 -6,6 -28,0 -6,-6"
+           fill="#ffffff" fill-opacity="0.85"/>
 
-    <!-- Right trapezoid (mirror) -->
-    <polygon points="5,-60 70,-60 48,60 10,60" fill="url(#rightGrad)" stroke="#0b2015" stroke-width="2"/>
-    <g transform="translate(38 0) rotate(-10)">
-      <rect x="-24" y="-42" width="18" height="70" rx="3" fill="url(#yellow)" stroke="#fff" stroke-opacity="0.35" stroke-width="1"/>
+  <!-- Left card: K -->
+  <g transform="translate(380 540) rotate(-12)">
+    <rect x="-160" y="-230" width="320" height="460" rx="32" ry="32"
+          fill="url(#card)" stroke="#c81d4a" stroke-width="5"/>
+    <text x="-120" y="-150" font-family="Georgia, 'Times New Roman', serif"
+          font-size="78" font-weight="900" fill="#c81d4a">K</text>
+    <path transform="translate(-95 -110) scale(0.32)"
+          d="M0,-18 C-18,-40 -55,-32 -55,-2 C-55,28 0,58 0,58 C0,58 55,28 55,-2 C55,-32 18,-40 0,-18 Z"
+          fill="url(#heart)"/>
+    <text x="0" y="100" font-family="Georgia, 'Times New Roman', serif"
+          font-size="340" font-weight="900" fill="#c81d4a" text-anchor="middle">K</text>
+    <g transform="translate(120 170) rotate(180)">
+      <text x="0" y="30" font-family="Georgia, 'Times New Roman', serif"
+            font-size="78" font-weight="900" fill="#c81d4a" text-anchor="middle">K</text>
+      <path transform="translate(0 72) scale(0.32)"
+            d="M0,-18 C-18,-40 -55,-32 -55,-2 C-55,28 0,58 0,58 C0,58 55,28 55,-2 C55,-32 18,-40 0,-18 Z"
+            fill="url(#heart)"/>
     </g>
-    <g transform="translate(38 0) rotate(2)">
-      <rect x="-9" y="-42" width="18" height="70" rx="3" fill="url(#red)" stroke="#fff" stroke-opacity="0.35" stroke-width="1"/>
-    </g>
-    <g transform="translate(38 0) rotate(14)">
-      <rect x="6" y="-42" width="18" height="70" rx="3" fill="url(#blue)" stroke="#fff" stroke-opacity="0.35" stroke-width="1"/>
-    </g>
+  </g>
 
-    <!-- Wand-spark at top center -->
-    <polygon points="0,-82 4,-66 18,-70 8,-58 18,-50 4,-52 0,-36 -4,-52 -18,-50 -8,-58 -18,-70 -4,-66" fill="#fff" fill-opacity="0.95"/>
+  <!-- Right card: A -->
+  <g transform="translate(644 540) rotate(12)">
+    <rect x="-160" y="-230" width="320" height="460" rx="32" ry="32"
+          fill="url(#card)" stroke="#c81d4a" stroke-width="5"/>
+    <text x="-120" y="-150" font-family="Georgia, 'Times New Roman', serif"
+          font-size="78" font-weight="900" fill="#c81d4a">A</text>
+    <path transform="translate(-90 -110) scale(0.32)"
+          d="M0,-18 C-18,-40 -55,-32 -55,-2 C-55,28 0,58 0,58 C0,58 55,28 55,-2 C55,-32 18,-40 0,-18 Z"
+          fill="url(#heart)"/>
+    <text x="0" y="100" font-family="Georgia, 'Times New Roman', serif"
+          font-size="340" font-weight="900" fill="#c81d4a" text-anchor="middle">A</text>
+    <g transform="translate(120 170) rotate(180)">
+      <text x="0" y="30" font-family="Georgia, 'Times New Roman', serif"
+            font-size="78" font-weight="900" fill="#c81d4a" text-anchor="middle">A</text>
+      <path transform="translate(0 72) scale(0.32)"
+            d="M0,-18 C-18,-40 -55,-32 -55,-2 C-55,28 0,58 0,58 C0,58 55,28 55,-2 C55,-32 18,-40 0,-18 Z"
+            fill="url(#heart)"/>
+    </g>
+  </g>
+
+  <!-- Center floating heart (cards meet here) -->
+  <g transform="translate(512 420)">
+    <circle cx="0" cy="0" r="74" fill="#ffffff" fill-opacity="0.12"/>
+    <path transform="scale(1.8)"
+          d="M0,-18 C-18,-40 -55,-32 -55,-2 C-55,28 0,58 0,58 C0,58 55,28 55,-2 C55,-32 18,-40 0,-18 Z"
+          fill="url(#heart)"
+          stroke="#ffffff" stroke-width="4"/>
   </g>
 </svg>
