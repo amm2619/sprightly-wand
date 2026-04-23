@@ -589,6 +589,11 @@ export default function Table({ route, navigation }: Props) {
               ) : (
                 <View style={s.pileEmpty} />
               )}
+              {(hand?.discard.length ?? 0) >= 2 && (
+                <View style={s.prevDiscard} pointerEvents="none">
+                  <GameCard card={hand!.discard[hand!.discard.length - 2]} small />
+                </View>
+              )}
               <Text style={s.pileLabel}>Discard</Text>
             </View>
           </Pressable>
@@ -1069,6 +1074,11 @@ const styles = StyleSheet.create({
     borderColor: theme.feltLight,
   },
   pileLabel: { color: theme.inkDim, fontSize: 10, marginTop: 2 },
+  prevDiscard: {
+    position: 'absolute', top: -10, right: -18,
+    transform: [{ scale: 0.62 }, { rotate: '10deg' }],
+    opacity: 0.92,
+  },
 
   turnBanner: {
     color: theme.accent, textAlign: 'center', fontSize: 13, fontWeight: '600',

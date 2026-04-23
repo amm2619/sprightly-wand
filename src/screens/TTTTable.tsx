@@ -372,6 +372,11 @@ export default function TTTTable({ route, navigation }: Props) {
               {hand?.discard?.length
                 ? <GameCard card={hand.discard[hand.discard.length - 1]} />
                 : <View style={s.pileEmpty} />}
+              {(hand?.discard?.length ?? 0) >= 2 && (
+                <View style={s.prevDiscard} pointerEvents="none">
+                  <GameCard card={hand!.discard[hand!.discard.length - 2]} small />
+                </View>
+              )}
               <Text style={s.pileLabel}>Discard</Text>
             </Pressable>
           </DropZoneView>
@@ -742,6 +747,11 @@ const styles = StyleSheet.create({
   pile: { alignItems: 'center' },
   pileEmpty: { width: 68, height: 98, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: theme.feltLight },
   pileLabel: { color: theme.inkDim, fontSize: 11, marginTop: 4 },
+  prevDiscard: {
+    position: 'absolute', top: -10, right: -18,
+    transform: [{ scale: 0.62 }, { rotate: '10deg' }],
+    opacity: 0.92,
+  },
   wildBanner: {
     marginHorizontal: 12, marginTop: 4, padding: 10, borderRadius: 10,
     backgroundColor: theme.feltDark, borderWidth: 1, borderColor: theme.feltLight,
