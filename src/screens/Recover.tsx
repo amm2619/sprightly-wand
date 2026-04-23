@@ -64,24 +64,28 @@ export default function Recover({ navigation }: Props) {
     }
     setBusy(true);
     try {
+      // Firestore rejects `undefined` — build each preset without the
+      // game-specific fields when they don't apply.
+      const host = {
+        nickname,
+        phase: isPhase10 ? mp : 1,
+        totalScore: ms,
+        ...(isTrash ? { roundSize: mrs } : {}),
+        ...(isTTT ? { handNumber: hn } : {}),
+      };
+      const opponent = {
+        nickname: oppNickname.trim(),
+        phase: isPhase10 ? op : 1,
+        totalScore: os,
+        ...(isTrash ? { roundSize: ors } : {}),
+        ...(isTTT ? { handNumber: hn } : {}),
+      };
       await createRoomWithPreset({
         code,
         hostNickname: nickname,
         gameType,
-        host: {
-          nickname,
-          phase: isPhase10 ? mp : 1,
-          totalScore: ms,
-          roundSize: isTrash ? mrs : undefined,
-          handNumber: isTTT ? hn : undefined,
-        },
-        opponent: {
-          nickname: oppNickname.trim(),
-          phase: isPhase10 ? op : 1,
-          totalScore: os,
-          roundSize: isTrash ? ors : undefined,
-          handNumber: isTTT ? hn : undefined,
-        },
+        host,
+        opponent,
       });
       await setLastRoomCode(code);
       navigation.replace('Table', { roomCode: code });
