@@ -1,9 +1,12 @@
+import 'react-native-gesture-handler';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { DragProvider } from './src/components/DragContext';
 import { RootStackParamList } from './src/navigation/types';
 import GameOver from './src/screens/GameOver';
 import GamePick from './src/screens/GamePick';
@@ -48,7 +51,9 @@ export default function App() {
   }
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
+      <DragProvider>
       <NavigationContainer theme={navTheme}>
         <StatusBar style="light" />
         <Stack.Navigator
@@ -70,6 +75,8 @@ export default function App() {
           <Stack.Screen name="GameOver" component={GameOver} options={{ headerShown: false }} />
         </Stack.Navigator>
       </NavigationContainer>
+      </DragProvider>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

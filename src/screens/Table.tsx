@@ -14,6 +14,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
 import { GameCard } from '../components/Card';
+import { useDragCtx, type DropTarget } from '../components/DragContext';
+import { DraggableCard } from '../components/DraggableCard';
+import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
 import { IconToggle as SharedIconToggle } from '../components/IconToggle';
 import { PhaseSlot, PhaseSlotInfo } from '../components/PhaseSlot';
@@ -236,6 +239,100 @@ export default function Table({ route, navigation }: Props) {
   const onDrawDeck = () => doAction(() => drawFromDeck(roomCode));
   const onDrawDiscard = () => doAction(() => drawFromDiscard(roomCode));
 
+  // Drag a hand card into a phase slot during lay mode. Appends to staged[slotIdx];
+  // if the slot is now full, validates the group locally.
+  const onDropIntoSlot = (card: CardT, slotIdx: number) => {
+    const slot = mySlots[slotIdx];
+    if (!slot) return;
+    setStaged((prev) => {
+      const arr = prev.length ? prev.map((a) => [...a]) : mySlots.map(() => [] as string[]);
+      if (arr[slotIdx].includes(card.id)) return prev;
+      if (arr[slotIdx].length >= slot.size) {
+        setError(`${slot.label} is full — tap it to clear.`);
+        return prev;
+      }
+      for (let i = 0; i < arr.length; i++) arr[i] = arr[i].filter((id) => id !== card.id);
+      arr[slotIdx] = [...arr[slotIdx], card.id];
+      if (arr[slotIdx].length === slot.size) {
+        const byId = new Map(myHand.map((c) => [c.id, c]));
+        const cards = arr[slotIdx].map((id) => byId.get(id)!).filter(Boolean);
+        if (!validateSlot(slot, cards)) {
+          setError(`Those cards don't form a valid ${slot.label.toLowerCase()}.`);
+        } else {
+          setError(null);
+        }
+      } else {
+        setError(null);
+      }
+      return arr;
+    });
+  };
+
+  // Drag a hand card onto a laid meld during hit mode — single-card hit with
+  // wild-value prompt when dropping a wild onto a 2-end-open run.
+  const onDropHit = (card: CardT, ownerUid: string, idx: number) => {
+    if (!hand) return;
+    const target = hand.laid[ownerUid]?.[idx];
+    if (!target) return;
+
+    const submit = async (declaredValue?: number) => {
+      await doAction(async () => {
+        await hitGroupMulti(roomCode, ownerUid, idx, [
+          { cardId: card.id, declaredValue: card.kind === 'wild' ? declaredValue : undefined },
+        ]);
+        setSelected(new Set());
+        setMode('normal');
+        setWildPrompt(null);
+      });
+    };
+
+    if (card.kind === 'wild' && target.kind === 'run') {
+      const naturals = target.cards.filter((c) => c.kind === 'num') as Array<{ value: number }>;
+      const N = target.cards.length;
+      let start = 1;
+      for (let s = 1; s <= 13 - N + 1; s++) {
+        const slots = new Set<number>();
+        for (let i = 0; i < N; i++) slots.add(s + i);
+        if (naturals.every((c) => slots.has(c.value))) { start = s; break; }
+      }
+      const lowVal = start - 1;
+      const highVal = start + N;
+      const canLow = lowVal >= 1;
+      const canHigh = highVal <= 12;
+      if (canLow && canHigh) {
+        setWildPrompt({
+          wilds: [card],
+          options: [lowVal, highVal],
+          onResolve: async (values) => { await submit(values[card.id]); },
+        });
+        return;
+      }
+    }
+    submit();
+  };
+
+  const onDropDiscard = (card: CardT) => {
+    doAction(async () => {
+      await discardCard(roomCode, card.id);
+      setSelected(new Set());
+    });
+  };
+
+  // Register the drop handler with DragContext whenever inputs change.
+  const drag = useDragCtx();
+  useEffect(() => {
+    drag.setHandler((card, target: DropTarget) => {
+      if (!isMyTurn || busy) return;
+      if (target.kind === 'slot') {
+        if (mode === 'lay') onDropIntoSlot(card as CardT, target.slotIndex);
+      } else if (target.kind === 'hit') {
+        if (mode === 'hit') onDropHit(card as CardT, target.ownerUid, target.groupIndex);
+      } else if (target.kind === 'discard') {
+        if (mode === 'normal' && hand?.hasDrawn) onDropDiscard(card as CardT);
+      }
+    });
+  }, [drag, mode, isMyTurn, busy, hand, mySlots, myHand, roomCode]);
+
   const onDiscard = () => {
     if (selected.size !== 1) { setError('Pick exactly one card to discard'); return; }
     const id = Array.from(selected)[0];
@@ -456,14 +553,20 @@ export default function Table({ route, navigation }: Props) {
         <View style={s.phasesCenter}>
           {oppLaid.length > 0 ? (
             oppLaid.map((g, i) => (
-              <PhaseSlot
+              <DropZoneView
                 key={i}
-                slot={{ kind: g.kind, size: g.cards.length, label: g.kind }}
-                cards={g.cards}
-                locked
-                highlighted={mode === 'hit'}
-                onPress={mode === 'hit' && opponentUid ? () => onPickHitTarget(opponentUid, i) : undefined}
-              />
+                id={`opp-laid-${i}`}
+                target={{ kind: 'hit', ownerUid: opponentUid!, groupIndex: i }}
+                enabled={mode === 'hit' && !!opponentUid && isMyTurn && !!hand?.hasDrawn && !busy}
+              >
+                <PhaseSlot
+                  slot={{ kind: g.kind, size: g.cards.length, label: g.kind }}
+                  cards={g.cards}
+                  locked
+                  highlighted={mode === 'hit'}
+                  onPress={mode === 'hit' && opponentUid ? () => onPickHitTarget(opponentUid, i) : undefined}
+                />
+              </DropZoneView>
             ))
           ) : (
             oppSlots.map((s, i) => <PhaseSlot key={i} slot={s} />)
@@ -479,16 +582,22 @@ export default function Table({ route, navigation }: Props) {
             <Text style={s.pileLabel}>Deck · {hand?.deck.length ?? 0}</Text>
           </View>
         </Pressable>
-        <Pressable onPress={canDrawDiscard && !busy ? onDrawDiscard : undefined}>
-          <View style={s.pile}>
-            {hand?.discard.length ? (
-              <GameCard card={hand.discard[hand.discard.length - 1]} />
-            ) : (
-              <View style={s.pileEmpty} />
-            )}
-            <Text style={s.pileLabel}>Discard</Text>
-          </View>
-        </Pressable>
+        <DropZoneView
+          id="discard"
+          target={{ kind: 'discard' }}
+          enabled={mode === 'normal' && isMyTurn && !!hand?.hasDrawn && !busy}
+        >
+          <Pressable onPress={canDrawDiscard && !busy ? onDrawDiscard : undefined}>
+            <View style={s.pile}>
+              {hand?.discard.length ? (
+                <GameCard card={hand.discard[hand.discard.length - 1]} />
+              ) : (
+                <View style={s.pileEmpty} />
+              )}
+              <Text style={s.pileLabel}>Discard</Text>
+            </View>
+          </Pressable>
+        </DropZoneView>
       </View>
 
       <Text
@@ -528,28 +637,40 @@ export default function Table({ route, navigation }: Props) {
         <View style={s.phasesCenter}>
           {alreadyLaid
             ? myLaid.map((g, i) => (
-              <PhaseSlot
+              <DropZoneView
                 key={i}
-                slot={{ kind: g.kind, size: g.cards.length, label: g.kind }}
-                cards={g.cards}
-                locked
-                highlighted={mode === 'hit'}
-                onPress={mode === 'hit' && myUid ? () => onPickHitTarget(myUid, i) : undefined}
-              />
+                id={`my-laid-${i}`}
+                target={{ kind: 'hit', ownerUid: myUid, groupIndex: i }}
+                enabled={mode === 'hit' && isMyTurn && !!hand?.hasDrawn && !busy}
+              >
+                <PhaseSlot
+                  slot={{ kind: g.kind, size: g.cards.length, label: g.kind }}
+                  cards={g.cards}
+                  locked
+                  highlighted={mode === 'hit'}
+                  onPress={mode === 'hit' && myUid ? () => onPickHitTarget(myUid, i) : undefined}
+                />
+              </DropZoneView>
             ))
-            : mySlots.map((s, i) => {
+            : mySlots.map((slotInfo, i) => {
               const stagedIdList = staged[i] ?? [];
               const cardsInSlot = stagedIdList
                 .map((id) => myHand.find((c) => c.id === id))
                 .filter(Boolean) as CardT[];
               return (
-                <PhaseSlot
+                <DropZoneView
                   key={i}
-                  slot={s}
-                  cards={cardsInSlot.length ? cardsInSlot : undefined}
-                  target={mode === 'lay'}
-                  onPress={mode === 'lay' ? () => onPlaceIntoSlot(i) : undefined}
-                />
+                  id={`my-slot-${i}`}
+                  target={{ kind: 'slot', slotIndex: i }}
+                  enabled={mode === 'lay' && isMyTurn && !!hand?.hasDrawn && !busy}
+                >
+                  <PhaseSlot
+                    slot={slotInfo}
+                    cards={cardsInSlot.length ? cardsInSlot : undefined}
+                    target={mode === 'lay'}
+                    onPress={mode === 'lay' ? () => onPlaceIntoSlot(i) : undefined}
+                  />
+                </DropZoneView>
               );
             })}
           {myPhaseNum > 10 && (
@@ -586,20 +707,26 @@ export default function Table({ route, navigation }: Props) {
         >
           {orderedHand.filter((c) => !stagedIds.has(c.id)).map((c, i) => {
             const isPicked = mode === 'arrange' && swapPick === c.id;
+            const dragDisabled = mode === 'arrange' || !isMyTurn || busy;
             return (
-              <Pressable
-                key={c.id}
-                onPress={() => {
-                  if (mode === 'arrange') onArrangeTap(c.id);
-                  else toggleSelect(c.id);
-                }}
-                style={[s.handCard, i > 0 && s.handCardOverlap]}
-              >
-                <GameCard
-                  card={c}
-                  selected={selected.has(c.id) || isPicked}
-                />
-              </Pressable>
+              <View key={c.id} style={[s.handCard, i > 0 && s.handCardOverlap]}>
+                {dragDisabled ? (
+                  <Pressable
+                    onPress={() => {
+                      if (mode === 'arrange') onArrangeTap(c.id);
+                      else toggleSelect(c.id);
+                    }}
+                  >
+                    <GameCard card={c} selected={selected.has(c.id) || isPicked} />
+                  </Pressable>
+                ) : (
+                  <DraggableCard
+                    card={c}
+                    selected={selected.has(c.id) || isPicked}
+                    onTap={() => toggleSelect(c.id)}
+                  />
+                )}
+              </View>
             );
           })}
         </ScrollView>
