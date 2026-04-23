@@ -206,6 +206,29 @@ function HandCard({
     [firePulse, runShake, successHaptic],
   );
 
+  // Hit-testing + dispatch must run on the JS thread: zoneAt reads a JS Map
+  // from DragContext, and onDrop/onReorder trigger Firestore writes. Calling
+  // any of these synchronously from a gesture worklet crashes on Reanimated 4.
+  const handleRelease = useCallback(
+    (absX: number, absY: number, hLeft: number, hTop: number, hHeight: number) => {
+      const zone = zoneAt(absX, absY);
+      if (zone) {
+        onDrop(card, zone.target);
+        handleDropOutcome(zone.id, true);
+        return;
+      }
+      const inHandY = absY >= hTop - 20 && absY <= hTop + hHeight + 20;
+      if (inHandY) {
+        const relX = absX - (hLeft + HAND_H_PADDING + CARD_W / 2);
+        const targetIdx = Math.max(0, Math.min(totalCards - 1, Math.round(relX / step)));
+        if (targetIdx !== index) onReorder(targetIdx);
+      } else {
+        handleDropOutcome(null, false);
+      }
+    },
+    [zoneAt, onDrop, card, handleDropOutcome, totalCards, step, index, onReorder],
+  );
+
   const pan = Gesture.Pan()
     .enabled(!disabled)
     .minDistance(8)
@@ -228,25 +251,13 @@ function HandCard({
       dragY.value = e.absoluteY;
     })
     .onEnd((e) => {
-      const zone = zoneAt(e.absoluteX, e.absoluteY);
-      if (zone) {
-        runOnJS(onDrop)(card, zone.target);
-        runOnJS(handleDropOutcome)(zone.id, true);
-      } else {
-        const inHandY =
-          e.absoluteY >= handTop.value - 20 &&
-          e.absoluteY <= handTop.value + handHeight.value + 20;
-        if (inHandY) {
-          const relX = e.absoluteX - (handLeft.value + HAND_H_PADDING + CARD_W / 2);
-          const targetIdx = Math.max(0, Math.min(totalCards - 1, Math.round(relX / step)));
-          if (targetIdx !== index) {
-            runOnJS(onReorder)(targetIdx);
-          }
-        } else {
-          // Released outside a zone and outside hand → invalid. Shake.
-          runOnJS(handleDropOutcome)(null, false);
-        }
-      }
+      runOnJS(handleRelease)(
+        e.absoluteX,
+        e.absoluteY,
+        handLeft.value,
+        handTop.value,
+        handHeight.value,
+      );
       tx.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
       ty.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
       scale.value = withSpring(1, { damping: 22, stiffness: 260 });

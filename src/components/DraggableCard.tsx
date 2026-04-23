@@ -66,6 +66,22 @@ export function DraggableCard({ card, style, disabled, selected, onTap }: Props)
     [firePulse, runShake, successHaptic],
   );
 
+  // Hit-testing + dispatch must run on the JS thread: zoneAt reads a JS Map
+  // from DragContext, and onDrop triggers Firestore writes. Calling either
+  // synchronously from a gesture worklet crashes on Reanimated 4.
+  const handleRelease = useCallback(
+    (absX: number, absY: number) => {
+      const zone = zoneAt(absX, absY);
+      if (zone) {
+        onDrop(card, zone.target);
+        handleDropOutcome(zone.id, true);
+      } else {
+        handleDropOutcome(null, false);
+      }
+    },
+    [zoneAt, onDrop, card, handleDropOutcome],
+  );
+
   const tapGesture = Gesture.Tap()
     .enabled(!disabled && !!onTap)
     .maxDuration(250)
@@ -90,13 +106,7 @@ export function DraggableCard({ card, style, disabled, selected, onTap }: Props)
       dragY.value = e.absoluteY;
     })
     .onEnd((e) => {
-      const zone = zoneAt(e.absoluteX, e.absoluteY);
-      if (zone) {
-        runOnJS(onDrop)(card, zone.target);
-        runOnJS(handleDropOutcome)(zone.id, true);
-      } else {
-        runOnJS(handleDropOutcome)(null, false);
-      }
+      runOnJS(handleRelease)(e.absoluteX, e.absoluteY);
       x.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
       y.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
       scale.value = withSpring(1, { damping: 22, stiffness: 260 });
