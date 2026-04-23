@@ -62,7 +62,13 @@ export async function startTTTHand(code: string): Promise<void> {
     const seat0 = uids.find((u) => data.players[u].seat === 0)!;
     const seat1 = uids.find((u) => data.players[u].seat === 1)!;
 
-    const handNumber = (data.hand?.handNumber ?? 0) + 1;
+    const isFirstHand = !data.hand;
+    const preset = data.preset as
+      | { seat0: { handNumber?: number }; seat1: { handNumber?: number } }
+      | undefined;
+    const handNumber = isFirstHand && preset
+      ? (preset.seat0.handNumber ?? preset.seat1.handNumber ?? 1)
+      : (data.hand?.handNumber ?? 0) + 1;
     if (handNumber > 11) throw new Error('Game is over');
 
     const wildRank = wildRankForHand(handNumber);

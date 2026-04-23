@@ -44,9 +44,16 @@ export async function startTrashRound(code: string): Promise<void> {
     const seat0 = uids.find((u) => data.players[u].seat === 0)!;
     const seat1 = uids.find((u) => data.players[u].seat === 1)!;
 
-    const prevRoundSizes: Record<string, number> = data.hand?.roundSizes ?? {
-      [seat0]: 10, [seat1]: 10,
-    };
+    const isFirstRound = !data.hand;
+    const preset = data.preset as
+      | { seat0: { roundSize?: number }; seat1: { roundSize?: number } }
+      | undefined;
+    const prevRoundSizes: Record<string, number> = isFirstRound && preset
+      ? {
+          [seat0]: preset.seat0.roundSize ?? 10,
+          [seat1]: preset.seat1.roundSize ?? 10,
+        }
+      : data.hand?.roundSizes ?? { [seat0]: 10, [seat1]: 10 };
     const prevWinner: string | undefined = data.handResult?.winner;
     const roundSizes: Record<string, number> = { ...prevRoundSizes };
     if (prevWinner) {

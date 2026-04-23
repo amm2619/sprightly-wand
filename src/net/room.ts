@@ -69,9 +69,11 @@ export async function createRoom(nickname: string, gameType: GameType = 'phase10
 
 export type PresetPlayer = {
   nickname: string;
-  phase: number;       // Phase 10: 1..10
+  phase: number;          // Phase 10: 1..10
   totalScore: number;
   seriesWins?: number;
+  roundSize?: number;     // Trash: starting slots this round (1..10)
+  handNumber?: number;    // 3-to-13: starting hand (1..11)
 };
 
 /**

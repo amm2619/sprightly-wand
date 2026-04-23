@@ -28,13 +28,18 @@ export default function Recover({ navigation }: Props) {
   const [gameType, setGameType] = useState<GameType>('phase10');
   const [myPhase, setMyPhase] = useState('1');
   const [myScore, setMyScore] = useState('0');
+  const [myRoundSize, setMyRoundSize] = useState('10');
   const [oppNickname, setOppNickname] = useState('');
   const [oppPhase, setOppPhase] = useState('1');
   const [oppScore, setOppScore] = useState('0');
+  const [oppRoundSize, setOppRoundSize] = useState('10');
+  const [handNumber, setHandNumber] = useState('1');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isPhase10 = gameType === 'phase10';
+  const isTrash = gameType === 'trash';
+  const isTTT = gameType === 'three-thirteen';
 
   const go = async () => {
     setError(null);
@@ -45,8 +50,17 @@ export default function Recover({ navigation }: Props) {
     const op = parseInt(oppPhase || '1', 10);
     const ms = parseInt(myScore || '0', 10);
     const os = parseInt(oppScore || '0', 10);
+    const mrs = parseInt(myRoundSize || '10', 10);
+    const ors = parseInt(oppRoundSize || '10', 10);
+    const hn = parseInt(handNumber || '1', 10);
     if (isPhase10 && (mp < 1 || mp > 10 || op < 1 || op > 10)) {
       setError('Phases must be between 1 and 10.'); return;
+    }
+    if (isTrash && (mrs < 1 || mrs > 10 || ors < 1 || ors > 10)) {
+      setError('Round slots must be between 1 and 10.'); return;
+    }
+    if (isTTT && (hn < 1 || hn > 11)) {
+      setError('Hand number must be between 1 and 11.'); return;
     }
     setBusy(true);
     try {
@@ -54,8 +68,20 @@ export default function Recover({ navigation }: Props) {
         code,
         hostNickname: nickname,
         gameType,
-        host: { nickname, phase: mp, totalScore: ms },
-        opponent: { nickname: oppNickname.trim(), phase: op, totalScore: os },
+        host: {
+          nickname,
+          phase: isPhase10 ? mp : 1,
+          totalScore: ms,
+          roundSize: isTrash ? mrs : undefined,
+          handNumber: isTTT ? hn : undefined,
+        },
+        opponent: {
+          nickname: oppNickname.trim(),
+          phase: isPhase10 ? op : 1,
+          totalScore: os,
+          roundSize: isTrash ? ors : undefined,
+          handNumber: isTTT ? hn : undefined,
+        },
       });
       await setLastRoomCode(code);
       navigation.replace('Table', { roomCode: code });
@@ -105,6 +131,24 @@ export default function Recover({ navigation }: Props) {
               })}
             </View>
 
+            {isTTT && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Hand (applies to both players)</Text>
+                <View style={styles.row}>
+                  <View style={styles.numBox}>
+                    <Text style={styles.numLabel}>Hand # (1–11)</Text>
+                    <TextInput
+                      value={handNumber}
+                      onChangeText={(t) => setHandNumber(DIGITS_ONLY(t).slice(0, 2))}
+                      keyboardType="number-pad"
+                      style={styles.numInput}
+                      maxLength={2}
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
+
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>You ({nickname || '?'})</Text>
               <View style={styles.row}>
@@ -114,6 +158,18 @@ export default function Recover({ navigation }: Props) {
                     <TextInput
                       value={myPhase}
                       onChangeText={(t) => setMyPhase(DIGITS_ONLY(t).slice(0, 2))}
+                      keyboardType="number-pad"
+                      style={styles.numInput}
+                      maxLength={2}
+                    />
+                  </View>
+                )}
+                {isTrash && (
+                  <View style={styles.numBox}>
+                    <Text style={styles.numLabel}>Slots left (1–10)</Text>
+                    <TextInput
+                      value={myRoundSize}
+                      onChangeText={(t) => setMyRoundSize(DIGITS_ONLY(t).slice(0, 2))}
                       keyboardType="number-pad"
                       style={styles.numInput}
                       maxLength={2}
@@ -152,6 +208,18 @@ export default function Recover({ navigation }: Props) {
                     <TextInput
                       value={oppPhase}
                       onChangeText={(t) => setOppPhase(DIGITS_ONLY(t).slice(0, 2))}
+                      keyboardType="number-pad"
+                      style={styles.numInput}
+                      maxLength={2}
+                    />
+                  </View>
+                )}
+                {isTrash && (
+                  <View style={styles.numBox}>
+                    <Text style={styles.numLabel}>Slots left (1–10)</Text>
+                    <TextInput
+                      value={oppRoundSize}
+                      onChangeText={(t) => setOppRoundSize(DIGITS_ONLY(t).slice(0, 2))}
                       keyboardType="number-pad"
                       style={styles.numInput}
                       maxLength={2}
