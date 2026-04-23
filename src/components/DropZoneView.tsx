@@ -34,7 +34,7 @@ export function DropZoneView({
   const {
     register,
     unregister,
-    activeCard,
+    activeCardRef,
     dragX,
     dragY,
     registerPulse,
@@ -139,10 +139,10 @@ export function DropZoneView({
     <View ref={ref} onLayout={onLayout} style={style} collapsable={false}>
       {children}
       <Animated.View pointerEvents="none" style={[styles.glow, glowStyle]} />
-      {ghost && isHover && activeCard && (
+      {ghost && isHover && activeCardRef.current && (
         <View pointerEvents="none" style={styles.ghostWrap}>
           <View style={{ opacity: 0.42 }}>
-            <GameCard card={activeCard} small />
+            <GameCard card={activeCardRef.current} small />
           </View>
         </View>
       )}

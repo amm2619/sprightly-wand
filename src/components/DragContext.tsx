@@ -4,7 +4,7 @@ import {
   useContext,
   useMemo,
   useRef,
-  useState,
+  type MutableRefObject,
   type ReactNode,
 } from 'react';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
@@ -44,8 +44,10 @@ type DragContextValue = {
   onDrop: Handler;
   setHandler: (h: Handler) => void;
 
-  // Polish: active drag state so zones can render hover/ghost.
-  activeCard: AnyDragCard | null;
+  // Active drag card lives in a ref — worklets can set it without triggering
+  // a re-render cascade that would tear down in-flight gesture handlers.
+  // Drop zones read it from the ref at render time when they detect hover.
+  activeCardRef: MutableRefObject<AnyDragCard | null>;
   setActiveCard: (c: AnyDragCard | null) => void;
   dragX: SharedValue<number>;
   dragY: SharedValue<number>;
@@ -62,8 +64,8 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const zonesRef = useRef<Map<string, DropZone>>(new Map());
   const handlerRef = useRef<Handler>(() => {});
   const pulseMapRef = useRef<Map<string, PulseCb>>(new Map());
+  const activeCardRef = useRef<AnyDragCard | null>(null);
 
-  const [activeCard, setActiveCardState] = useState<AnyDragCard | null>(null);
   const dragX = useSharedValue(-1);
   const dragY = useSharedValue(-1);
 
@@ -87,7 +89,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setActiveCard = useCallback((c: AnyDragCard | null) => {
-    setActiveCardState(c);
+    activeCardRef.current = c;
     if (c === null) {
       dragX.value = -1;
       dragY.value = -1;
@@ -107,11 +109,11 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const value = useMemo<DragContextValue>(
     () => ({
       register, unregister, zoneAt, onDrop, setHandler,
-      activeCard, setActiveCard,
+      activeCardRef, setActiveCard,
       dragX, dragY,
       registerPulse, unregisterPulse, firePulse,
     }),
-    [register, unregister, zoneAt, onDrop, setHandler, activeCard, setActiveCard, dragX, dragY, registerPulse, unregisterPulse, firePulse],
+    [register, unregister, zoneAt, onDrop, setHandler, setActiveCard, dragX, dragY, registerPulse, unregisterPulse, firePulse],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
