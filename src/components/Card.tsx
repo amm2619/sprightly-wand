@@ -19,11 +19,19 @@ type Props = {
 };
 
 /** Bright → deep gradient pair per suit for the card backdrop. */
+/** Variant A palette: solid saturated base + darker rim + highlight. */
+const SUIT_PALETTE: Record<SuitColor, { base: string; deep: string; highlight: string }> = {
+  red:    { base: '#e11d48', deep: '#9f1239', highlight: '#ffb4bf' },
+  blue:   { base: '#2563eb', deep: '#1e40af', highlight: '#bfdbfe' },
+  green:  { base: '#16a34a', deep: '#15803d', highlight: '#bbf7d0' },
+  yellow: { base: '#e8b923', deep: '#9a7a14', highlight: '#fce58c' },
+};
+/** Legacy gradient lookup (still used by wild-card stripes). */
 const SUIT_GRAD: Record<SuitColor, [string, string]> = {
-  red: ['#e84646', '#a01c1c'],
-  blue: ['#3b7cd1', '#13408a'],
-  green: ['#41a653', '#1f6e2d'],
-  yellow: ['#e6bd48', '#a98220'],
+  red:    [SUIT_PALETTE.red.base,    SUIT_PALETTE.red.deep],
+  blue:   [SUIT_PALETTE.blue.base,   SUIT_PALETTE.blue.deep],
+  green:  [SUIT_PALETTE.green.base,  SUIT_PALETTE.green.deep],
+  yellow: [SUIT_PALETTE.yellow.base, SUIT_PALETTE.yellow.deep],
 };
 
 export function GameCard({ card, selected, dimmed, small, onPress }: Props) {
@@ -79,26 +87,46 @@ function renderFace(card: AnyCard | undefined, w: number, h: number) {
   }
 
   if (card.kind === 'num') {
-    const [c1, c2] = SUIT_GRAD[card.color];
+    const { base, deep, highlight } = SUIT_PALETTE[card.color];
+    const twoDigit = card.value >= 10;
+    const centerFontSize = w * (twoDigit ? 0.68 : 0.86);
+    const cornerFontSize = w * (twoDigit ? 0.18 : 0.22);
     return (
-      <LinearGradient colors={[c1, c2]} style={styles.face}>
+      <View style={[styles.face, { backgroundColor: base }]}>
+        {/* Inner deep-color rim for a printed-card feel */}
+        <View style={[styles.innerRim, { borderColor: deep }]} pointerEvents="none" />
+        {/* Top-half sheen */}
+        <View
+          pointerEvents="none"
+          style={[
+            styles.topSheen,
+            { backgroundColor: highlight, opacity: 0.18, height: h * 0.4 },
+          ]}
+        />
+        {/* Top-left corner number */}
         <View style={[styles.cornerWrap, styles.cornerTL]}>
-          <Text style={[styles.cornerNum, { fontSize: w * 0.22 }]}>{card.value}</Text>
-          <View style={[styles.pip, { backgroundColor: c2 }]} />
+          <Text style={[styles.varAcornerNum, { fontSize: cornerFontSize }]}>
+            {card.value}
+          </Text>
         </View>
+        {/* Big center number — auto-shrinks for 11/12 so nothing clips */}
         <Text
           style={[
-            styles.centerNum,
-            { fontSize: w * 0.56, textShadowRadius: Math.max(w * 0.04, 2) },
+            styles.varAcenterNum,
+            { fontSize: centerFontSize, textShadowRadius: Math.max(w * 0.03, 1.5) },
           ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
         >
           {card.value}
         </Text>
+        {/* Bottom-right corner (rotated 180°) */}
         <View style={[styles.cornerWrap, styles.cornerBR]}>
-          <Text style={[styles.cornerNum, { fontSize: w * 0.22 }]}>{card.value}</Text>
-          <View style={[styles.pip, { backgroundColor: c2 }]} />
+          <Text style={[styles.varAcornerNum, { fontSize: cornerFontSize }]}>
+            {card.value}
+          </Text>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -243,6 +271,32 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '900',
     textShadowColor: 'rgba(0,0,0,0.55)',
+    textShadowOffset: { width: 0, height: 2 },
+  },
+
+  // Variant A (polished Phase 10 number cards)
+  innerRim: {
+    position: 'absolute',
+    top: 2, left: 2, right: 2, bottom: 2,
+    borderRadius: 9,
+    borderWidth: 1,
+  },
+  topSheen: {
+    position: 'absolute',
+    top: 3, left: 3, right: 3,
+    borderTopLeftRadius: 9,
+    borderTopRightRadius: 9,
+  },
+  varAcornerNum: {
+    color: '#ffffff',
+    fontWeight: '900',
+    letterSpacing: -0.4,
+  },
+  varAcenterNum: {
+    color: '#ffffff',
+    fontWeight: '900',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.45)',
     textShadowOffset: { width: 0, height: 2 },
   },
   wildBars: {
