@@ -270,13 +270,14 @@ export async function layPhase(
       return { kind: g.kind, cards };
     });
 
-    if (!canLayPhase(myPhase, laidGroups)) {
+    const variantId = room.phase10Variant as import('../games/phase10/variants').PhaseVariantId | undefined;
+    if (!canLayPhase(myPhase, laidGroups, variantId)) {
       throw new Error('Groups do not satisfy your phase');
     }
 
     // Visually sort run cards so wilds land in their correct slots.
     const sortedGroups = laidGroups.map((g) =>
-      g.kind === 'run' ? { kind: 'run' as const, cards: sortRunCards(g.cards) } : g,
+      g.kind === 'run' || g.kind === 'colorRun' ? { kind: g.kind, cards: sortRunCards(g.cards) } : g,
     );
 
     const remaining = myCards.filter((c) => !usedIds.has(c.id));

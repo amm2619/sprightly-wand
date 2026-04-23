@@ -5,6 +5,9 @@ import {
   canLayPhase,
   getPhase,
   isValidColorGroup,
+  isValidColorParity,
+  isValidColorRun,
+  isValidParitySet,
   isValidRun,
   isValidSet,
   scoreRemaining,
@@ -337,5 +340,65 @@ describe('phase definitions', () => {
 
   test('phase 11 throws', () => {
     expect(() => getPhase(11)).toThrow();
+  });
+});
+
+describe('isValidParitySet (even or odd of N)', () => {
+  test('valid all-even', () => {
+    expect(isValidParitySet([n(2), n(6), n(10), n(4)], 4)).toBe(true);
+  });
+  test('valid all-odd', () => {
+    expect(isValidParitySet([n(1), n(5), n(7), n(11)], 4)).toBe(true);
+  });
+  test('valid with wild filling in', () => {
+    expect(isValidParitySet([n(2), n(4), w(), n(8)], 4)).toBe(true);
+  });
+  test('invalid: mixed parity', () => {
+    expect(isValidParitySet([n(2), n(3), n(4)], 3)).toBe(false);
+  });
+  test('invalid: wrong size', () => {
+    expect(isValidParitySet([n(2), n(4)], 3)).toBe(false);
+  });
+  test('invalid: all wilds', () => {
+    expect(isValidParitySet([w(), w(), w()], 3)).toBe(false);
+  });
+  test('invalid: skip included', () => {
+    expect(isValidParitySet([n(2), n(4), skip()], 3)).toBe(false);
+  });
+});
+
+describe('isValidColorRun (color run of N)', () => {
+  test('valid 4-length consecutive same-color', () => {
+    expect(isValidColorRun([n(3, 'blue'), n(4, 'blue'), n(5, 'blue'), n(6, 'blue')], 4)).toBe(true);
+  });
+  test('valid with wild as missing consecutive', () => {
+    expect(isValidColorRun([n(3, 'red'), w(), n(5, 'red'), n(6, 'red')], 4)).toBe(true);
+  });
+  test('invalid: mixed colors', () => {
+    expect(isValidColorRun([n(3, 'red'), n(4, 'blue'), n(5, 'red'), n(6, 'red')], 4)).toBe(false);
+  });
+  test('invalid: values not consecutive', () => {
+    expect(isValidColorRun([n(3, 'red'), n(5, 'red'), n(7, 'red'), n(8, 'red')], 4)).toBe(false);
+  });
+  test('invalid: wrong size', () => {
+    expect(isValidColorRun([n(3, 'red'), n(4, 'red')], 4)).toBe(false);
+  });
+});
+
+describe('isValidColorParity (color even or odd of N)', () => {
+  test('valid same-color same-parity (evens, red)', () => {
+    expect(isValidColorParity([n(2, 'red'), n(6, 'red'), n(10, 'red')], 3)).toBe(true);
+  });
+  test('valid same-color same-parity (odds, green)', () => {
+    expect(isValidColorParity([n(3, 'green'), n(5, 'green'), n(11, 'green')], 3)).toBe(true);
+  });
+  test('valid with wild', () => {
+    expect(isValidColorParity([n(2, 'blue'), n(6, 'blue'), w()], 3)).toBe(true);
+  });
+  test('invalid: same color, mixed parity', () => {
+    expect(isValidColorParity([n(2, 'red'), n(3, 'red'), n(4, 'red')], 3)).toBe(false);
+  });
+  test('invalid: same parity, mixed color', () => {
+    expect(isValidColorParity([n(2, 'red'), n(4, 'blue'), n(6, 'red')], 3)).toBe(false);
   });
 });

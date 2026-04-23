@@ -22,11 +22,15 @@ import { IconToggle as SharedIconToggle } from '../components/IconToggle';
 import { PhaseSlot, PhaseSlotInfo } from '../components/PhaseSlot';
 import {
   isValidColorGroup,
+  isValidColorParity,
+  isValidColorRun,
+  isValidParitySet,
   isValidRun,
   isValidSet,
 } from '../games/phase10/rules';
 import { PHASES } from '../games/phase10/types';
 import type { Card as CardT, GroupKind, LaidGroup } from '../games/phase10/types';
+import { getVariant, type PhaseVariantId } from '../games/phase10/variants';
 import { RootStackParamList } from '../navigation/types';
 import {
   discardCard,
@@ -58,13 +62,16 @@ type FullRoom = RoomDoc & {
   lastWinner?: string;
 };
 
-function phaseSlots(phaseNum: number): PhaseSlotInfo[] {
+function phaseSlots(phaseNum: number, variantId?: PhaseVariantId): PhaseSlotInfo[] {
   if (phaseNum < 1 || phaseNum > 10) return [];
-  const phase = PHASES[phaseNum - 1];
+  const phase = getVariant(variantId).phases[phaseNum - 1];
   const out: PhaseSlotInfo[] = [];
   (phase.sets ?? []).forEach((n) => out.push({ kind: 'set', size: n, label: `Set of ${n}` }));
   (phase.runs ?? []).forEach((n) => out.push({ kind: 'run', size: n, label: `Run of ${n}` }));
   (phase.colors ?? []).forEach((n) => out.push({ kind: 'color', size: n, label: `${n} of a color` }));
+  (phase.parities ?? []).forEach((n) => out.push({ kind: 'parity', size: n, label: `Even or odd of ${n}` }));
+  (phase.colorRuns ?? []).forEach((n) => out.push({ kind: 'colorRun', size: n, label: `Color run of ${n}` }));
+  (phase.colorParities ?? []).forEach((n) => out.push({ kind: 'colorParity', size: n, label: `Color even/odd of ${n}` }));
   return out;
 }
 
@@ -73,6 +80,9 @@ function validateSlot(slot: PhaseSlotInfo, cards: CardT[]): boolean {
     case 'set': return isValidSet(cards, slot.size);
     case 'run': return isValidRun(cards, slot.size);
     case 'color': return isValidColorGroup(cards, slot.size);
+    case 'parity': return isValidParitySet(cards, slot.size);
+    case 'colorRun': return isValidColorRun(cards, slot.size);
+    case 'colorParity': return isValidColorParity(cards, slot.size);
   }
 }
 
@@ -195,8 +205,9 @@ export default function Table({ route, navigation }: Props) {
   const oppLaid: LaidGroup[] = isPhase10 && opponentUid && hand?.laid?.[opponentUid] ? hand.laid[opponentUid] : [];
   const myPhaseNum = myProgress?.phase ?? 1;
   const oppPhaseNum = oppProgress?.phase ?? 1;
-  const mySlots = phaseSlots(myPhaseNum);
-  const oppSlots = phaseSlots(oppPhaseNum);
+  const variantId = (room?.phase10Variant as PhaseVariantId | undefined);
+  const mySlots = phaseSlots(myPhaseNum, variantId);
+  const oppSlots = phaseSlots(oppPhaseNum, variantId);
   const alreadyLaid = myLaid.length > 0;
 
   // Auto-start the game as host — Phase 10 only

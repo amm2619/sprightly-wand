@@ -14,6 +14,9 @@ const KIND_LABEL: Record<LaidGroup['kind'], string> = {
   set: 'SET',
   run: 'RUN',
   color: 'COLOR',
+  parity: 'PARITY',
+  colorRun: 'COLOR RUN',
+  colorParity: 'COLOR PARITY',
 };
 
 export function MeldGroup({ group, onPress, highlighted, label }: Props) {

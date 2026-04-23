@@ -12,7 +12,13 @@ export type SkipCard = { id: string; kind: 'skip' };
 
 export type Card = NumCard | WildCard | SkipCard;
 
-export type GroupKind = 'set' | 'run' | 'color';
+export type GroupKind =
+  | 'set'          // N cards of same value
+  | 'run'          // N consecutive values
+  | 'color'        // N cards of same color
+  | 'parity'       // N cards all same parity (all even OR all odd)
+  | 'colorRun'     // N consecutive values, all same color
+  | 'colorParity'; // N cards all same parity AND all same color
 
 export type LaidGroup = {
   kind: GroupKind;
@@ -23,8 +29,12 @@ export type Phase = {
   sets?: number[];
   runs?: number[];
   colors?: number[];
+  parities?: number[];       // "even or odd of N"
+  colorRuns?: number[];      // "color run of N"
+  colorParities?: number[];  // "color even or odd of N"
 };
 
+/** The classic Mattel Phase 10 rule set. */
 export const PHASES: readonly Phase[] = [
   { sets: [3, 3] },           // 1
   { sets: [3], runs: [4] },   // 2

@@ -9,7 +9,7 @@ import { GameCard } from './Card';
 type AnyCard = CardT | StdCard;
 
 export type PhaseSlotInfo = {
-  kind: 'set' | 'run' | 'color';
+  kind: 'set' | 'run' | 'color' | 'parity' | 'colorRun' | 'colorParity';
   size: number;
   label: string;
 };

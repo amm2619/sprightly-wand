@@ -1,8 +1,9 @@
 import { Card, LaidGroup, Phase, PHASES, SuitColor } from './types';
+import { getVariant, type PhaseVariantId } from './variants';
 
-export function getPhase(phaseNum: number): Phase {
+export function getPhase(phaseNum: number, variantId?: PhaseVariantId): Phase {
   if (phaseNum < 1 || phaseNum > 10) throw new Error(`Invalid phase ${phaseNum}`);
-  return PHASES[phaseNum - 1];
+  return getVariant(variantId).phases[phaseNum - 1];
 }
 
 /** A group cannot consist entirely of wilds — at least one natural card is required. */
@@ -50,13 +51,65 @@ export function isValidRun(cards: Card[], requiredSize: number): boolean {
   return false;
 }
 
+/** N cards all same parity (all even OR all odd). Wilds substitute for either. */
+export function isValidParitySet(cards: Card[], requiredSize: number): boolean {
+  if (cards.length !== requiredSize) return false;
+  if (hasSkip(cards)) return false;
+  if (!hasNatural(cards)) return false;
+  const naturals = cards.filter((c) => c.kind === 'num') as { value: number }[];
+  const firstParity = naturals[0].value % 2;
+  return naturals.every((c) => c.value % 2 === firstParity);
+}
+
+/** N consecutive values all of the same color. Wilds substitute. Ace-low. */
+export function isValidColorRun(cards: Card[], requiredSize: number): boolean {
+  if (cards.length !== requiredSize) return false;
+  if (hasSkip(cards)) return false;
+  if (!hasNatural(cards)) return false;
+  const naturals = cards.filter((c) => c.kind === 'num') as { value: number; color: SuitColor }[];
+  // All naturals must share a color.
+  const color = naturals[0].color;
+  if (!naturals.every((c) => c.color === color)) return false;
+  // And the values must fit a consecutive window.
+  const values = naturals.map((c) => c.value);
+  const unique = new Set(values);
+  if (unique.size !== values.length) return false;
+  const maxStart = 13 - requiredSize;
+  for (let start = 1; start <= maxStart; start++) {
+    const slots = new Set<number>();
+    for (let i = 0; i < requiredSize; i++) slots.add(start + i);
+    if (values.every((v) => slots.has(v))) return true;
+  }
+  return false;
+}
+
+/** N cards all same parity AND all same color. */
+export function isValidColorParity(cards: Card[], requiredSize: number): boolean {
+  if (cards.length !== requiredSize) return false;
+  if (hasSkip(cards)) return false;
+  if (!hasNatural(cards)) return false;
+  const naturals = cards.filter((c) => c.kind === 'num') as { value: number; color: SuitColor }[];
+  const firstParity = naturals[0].value % 2;
+  const firstColor = naturals[0].color;
+  return naturals.every(
+    (c) => c.value % 2 === firstParity && c.color === firstColor,
+  );
+}
+
 /** Validates a single group against a group descriptor. */
-function validateGroup(group: LaidGroup, requiredSize: number, kind: 'set' | 'run' | 'color'): boolean {
+function validateGroup(
+  group: LaidGroup,
+  requiredSize: number,
+  kind: LaidGroup['kind'],
+): boolean {
   if (group.kind !== kind) return false;
   switch (kind) {
     case 'set': return isValidSet(group.cards, requiredSize);
     case 'run': return isValidRun(group.cards, requiredSize);
     case 'color': return isValidColorGroup(group.cards, requiredSize);
+    case 'parity': return isValidParitySet(group.cards, requiredSize);
+    case 'colorRun': return isValidColorRun(group.cards, requiredSize);
+    case 'colorParity': return isValidColorParity(group.cards, requiredSize);
   }
 }
 
@@ -64,12 +117,15 @@ function validateGroup(group: LaidGroup, requiredSize: number, kind: 'set' | 'ru
  * Checks that the laid groups exactly match the phase requirement.
  * Order within each category doesn't matter — we try every assignment.
  */
-export function canLayPhase(phaseNum: number, groups: LaidGroup[]): boolean {
-  const phase = getPhase(phaseNum);
-  const required: Array<{ kind: 'set' | 'run' | 'color'; size: number }> = [];
+export function canLayPhase(phaseNum: number, groups: LaidGroup[], variantId?: PhaseVariantId): boolean {
+  const phase = getPhase(phaseNum, variantId);
+  const required: Array<{ kind: LaidGroup['kind']; size: number }> = [];
   (phase.sets ?? []).forEach((n) => required.push({ kind: 'set', size: n }));
   (phase.runs ?? []).forEach((n) => required.push({ kind: 'run', size: n }));
   (phase.colors ?? []).forEach((n) => required.push({ kind: 'color', size: n }));
+  (phase.parities ?? []).forEach((n) => required.push({ kind: 'parity', size: n }));
+  (phase.colorRuns ?? []).forEach((n) => required.push({ kind: 'colorRun', size: n }));
+  (phase.colorParities ?? []).forEach((n) => required.push({ kind: 'colorParity', size: n }));
   if (groups.length !== required.length) return false;
 
   // Try every permutation of required -> groups assignment.
@@ -102,12 +158,29 @@ export function canHit(group: LaidGroup, card: Card): boolean {
       const nat = group.cards.find((c) => c.kind === 'num') as { color: SuitColor } | undefined;
       return nat ? card.color === nat.color : true;
     }
-    case 'run': {
+    case 'parity': {
+      const nat = group.cards.find((c) => c.kind === 'num') as { value: number } | undefined;
+      return nat ? card.value % 2 === nat.value % 2 : true;
+    }
+    case 'colorParity': {
+      const nat = group.cards.find((c) => c.kind === 'num') as
+        | { value: number; color: SuitColor } | undefined;
+      return nat
+        ? card.value % 2 === nat.value % 2 && card.color === nat.color
+        : true;
+    }
+    case 'run':
+    case 'colorRun': {
       // A valid run currently occupies consecutive values start..end.
-      // Recover those from naturals + wild positions.
       const N = group.cards.length;
-      const naturals = group.cards.filter((c) => c.kind === 'num') as { value: number }[];
-      if (naturals.length === 0) return true; // all wilds — any num card works
+      const naturals = group.cards.filter((c) => c.kind === 'num') as { value: number; color: SuitColor }[];
+      if (naturals.length === 0) return true;
+      // Color-runs also require a color match.
+      if (group.kind === 'colorRun') {
+        const c0 = naturals[0].color;
+        if (!naturals.every((c) => c.color === c0)) return false;
+        if (card.color !== c0) return false;
+      }
       for (let start = 1; start <= 13 - N; start++) {
         const slots = new Set<number>();
         for (let i = 0; i < N; i++) slots.add(start + i);
@@ -125,8 +198,8 @@ export function canHit(group: LaidGroup, card: Card): boolean {
 /** Adds a card to a group, returning a new group. Caller must have verified canHit. */
 export function applyHit(group: LaidGroup, card: Card): LaidGroup {
   const cards = [...group.cards, card];
-  if (group.kind === 'run') {
-    return { kind: 'run', cards: sortRunCards(cards) };
+  if (group.kind === 'run' || group.kind === 'colorRun') {
+    return { kind: group.kind, cards: sortRunCards(cards) };
   }
   return { kind: group.kind, cards };
 }

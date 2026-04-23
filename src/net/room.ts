@@ -24,6 +24,7 @@ export type RoomDoc = {
   players: Record<string, RoomPlayer>;
   status: RoomStatus;
   gameType?: GameType; // missing on legacy rooms = phase10
+  phase10Variant?: string; // e.g. 'classic' | 'tough-10'; missing = 'classic'
   // Optional recovery / hand / progress fields also live here (see readers).
 };
 
@@ -40,7 +41,11 @@ function expirationFromNow(): Timestamp {
   return Timestamp.fromMillis(Date.now() + ROOM_TTL_MS);
 }
 
-export async function createRoom(nickname: string, gameType: GameType = 'phase10'): Promise<string> {
+export async function createRoom(
+  nickname: string,
+  gameType: GameType = 'phase10',
+  phase10Variant?: string,
+): Promise<string> {
   const uid = await ensureSignedIn();
   for (let attempt = 0; attempt < 20; attempt++) {
     const code = makeRoomCode();
@@ -55,6 +60,7 @@ export async function createRoom(nickname: string, gameType: GameType = 'phase10
           players: { [uid]: { nickname, connected: true, seat: 0 } },
           status: 'waiting',
           gameType,
+          ...(phase10Variant ? { phase10Variant } : {}),
         };
         tx.set(ref, { ...room, expiresAt: expirationFromNow() });
       });
