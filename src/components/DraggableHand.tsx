@@ -7,11 +7,11 @@ import {
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
-  withSpring,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -158,12 +158,12 @@ function HandCard({
   const liftOpacity = useSharedValue(0);
 
   useEffect(() => {
-    home.value = withSpring(index * step + HAND_H_PADDING, { damping: 24, stiffness: 280 });
+    home.value = withTiming(index * step + HAND_H_PADDING, { duration: 240, easing: Easing.out(Easing.cubic) });
   }, [index, step, home]);
 
   useEffect(() => {
-    rot.value = withSpring(rotation, { damping: 22, stiffness: 260 });
-    yArc.value = withSpring(yFan, { damping: 22, stiffness: 260 });
+    rot.value = withTiming(rotation, { duration: 240, easing: Easing.out(Easing.cubic) });
+    yArc.value = withTiming(yFan, { duration: 240, easing: Easing.out(Easing.cubic) });
   }, [rotation, yFan, rot, yArc]);
 
   const haptic = useCallback(() => {
@@ -233,7 +233,7 @@ function HandCard({
     .enabled(!disabled)
     .minDistance(8)
     .onStart((e) => {
-      scale.value = withSpring(1.14, { damping: 15 });
+      scale.value = withTiming(1.14, { duration: 100, easing: Easing.out(Easing.quad) });
       z.value = 200;
       // Flatten the card while dragged so it reads cleanly.
       rot.value = withTiming(0, { duration: 140 });
@@ -258,13 +258,13 @@ function HandCard({
         handTop.value,
         handHeight.value,
       );
-      tx.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
-      ty.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
-      scale.value = withSpring(1, { damping: 22, stiffness: 260 });
+      tx.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.cubic) });
+      ty.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.cubic) });
+      scale.value = withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) });
       z.value = withTiming(1, { duration: 140 });
       liftOpacity.value = withTiming(0, { duration: 160 });
-      rot.value = withSpring(rotation, { damping: 22, stiffness: 260 });
-      yArc.value = withSpring(yFan, { damping: 22, stiffness: 260 });
+      rot.value = withTiming(rotation, { duration: 240, easing: Easing.out(Easing.cubic) });
+      yArc.value = withTiming(yFan, { duration: 240, easing: Easing.out(Easing.cubic) });
       runOnJS(endDrag)();
     });
 

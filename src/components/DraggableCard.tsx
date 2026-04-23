@@ -2,11 +2,11 @@ import { useCallback } from 'react';
 import { StyleSheet, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -91,7 +91,7 @@ export function DraggableCard({ card, style, disabled, selected, onTap }: Props)
     .enabled(!disabled)
     .minDistance(8)
     .onStart((e) => {
-      scale.value = withSpring(1.14, { damping: 15 });
+      scale.value = withTiming(1.14, { duration: 100, easing: Easing.out(Easing.quad) });
       elevation.value = withTiming(12, { duration: 80 });
       liftOpacity.value = withTiming(1, { duration: 140 });
       dragX.value = e.absoluteX;
@@ -107,9 +107,9 @@ export function DraggableCard({ card, style, disabled, selected, onTap }: Props)
     })
     .onEnd((e) => {
       runOnJS(handleRelease)(e.absoluteX, e.absoluteY);
-      x.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
-      y.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
-      scale.value = withSpring(1, { damping: 22, stiffness: 260 });
+      x.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.cubic) });
+      y.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.cubic) });
+      scale.value = withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) });
       elevation.value = withTiming(0, { duration: 120 });
       liftOpacity.value = withTiming(0, { duration: 160 });
       runOnJS(endDrag)();
