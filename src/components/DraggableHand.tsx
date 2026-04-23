@@ -158,12 +158,12 @@ function HandCard({
   const liftOpacity = useSharedValue(0);
 
   useEffect(() => {
-    home.value = withSpring(index * step + HAND_H_PADDING, { damping: 18, stiffness: 180 });
+    home.value = withSpring(index * step + HAND_H_PADDING, { damping: 24, stiffness: 280 });
   }, [index, step, home]);
 
   useEffect(() => {
-    rot.value = withSpring(rotation, { damping: 16, stiffness: 180 });
-    yArc.value = withSpring(yFan, { damping: 16, stiffness: 180 });
+    rot.value = withSpring(rotation, { damping: 22, stiffness: 260 });
+    yArc.value = withSpring(yFan, { damping: 22, stiffness: 260 });
   }, [rotation, yFan, rot, yArc]);
 
   const haptic = useCallback(() => {
@@ -247,13 +247,13 @@ function HandCard({
           runOnJS(handleDropOutcome)(null, false);
         }
       }
-      tx.value = withSpring(0, { damping: 18 });
-      ty.value = withSpring(0, { damping: 18 });
-      scale.value = withSpring(1);
-      z.value = withTiming(1, { duration: 180 });
-      liftOpacity.value = withTiming(0, { duration: 220 });
-      rot.value = withSpring(rotation, { damping: 16, stiffness: 180 });
-      yArc.value = withSpring(yFan, { damping: 16, stiffness: 180 });
+      tx.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
+      ty.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
+      scale.value = withSpring(1, { damping: 22, stiffness: 260 });
+      z.value = withTiming(1, { duration: 140 });
+      liftOpacity.value = withTiming(0, { duration: 160 });
+      rot.value = withSpring(rotation, { damping: 22, stiffness: 260 });
+      yArc.value = withSpring(yFan, { damping: 22, stiffness: 260 });
       runOnJS(endDrag)();
     });
 

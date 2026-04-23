@@ -496,6 +496,11 @@ export default function TTTTable({ route, navigation }: Props) {
               onPress={sortBySuit}
               disabled={mode !== 'normal' && mode !== 'lay'}
             />
+            {selected.size > 0 && (
+              <Pressable onPress={() => setSelected(new Set())} style={s.selectionPill}>
+                <Text style={s.selectionPillText}>{selected.size} selected · tap to clear</Text>
+              </Pressable>
+            )}
           </View>
           <View style={s.meRow}>
             <Text style={s.playerName}>{me?.nickname ?? 'You'}  {myUid && room.seriesWins?.[myUid] ? `🏆${room.seriesWins[myUid]}` : ''}</Text>
@@ -746,7 +751,16 @@ const styles = StyleSheet.create({
   stagingText: { color: theme.ink, fontSize: 11, fontWeight: '700' },
   layButtons: { flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' },
   handWrap: { marginTop: 'auto', paddingBottom: 4 },
-  handToolbar: { flexDirection: 'row', gap: 6, justifyContent: 'center', paddingVertical: 4 },
+  handToolbar: { flexDirection: 'row', gap: 6, justifyContent: 'center', alignItems: 'center', paddingVertical: 4 },
+  selectionPill: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+    backgroundColor: 'rgba(245,195,75,0.18)',
+    borderWidth: 1, borderColor: 'rgba(245,195,75,0.5)',
+    marginLeft: 4,
+  },
+  selectionPillText: {
+    color: theme.accent, fontSize: 11, fontWeight: '800', letterSpacing: 0.3,
+  },
   iconBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: theme.feltLight, backgroundColor: theme.feltDark },
   iconBtnText: { color: theme.inkDim, fontSize: 11, fontWeight: '700' },
   meRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 4 },

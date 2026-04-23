@@ -668,6 +668,11 @@ export default function Table({ route, navigation }: Props) {
         <View style={s.handToolbar}>
           <IconToggle icon="1·2·3" onPress={sortByValue} disabled={mode === 'lay' || mode === 'hit'} />
           <IconToggle icon="●●●" onPress={sortByColor} disabled={mode === 'lay' || mode === 'hit'} />
+          {selected.size > 0 && (
+            <Pressable onPress={() => setSelected(new Set())} style={s.selectionPill}>
+              <Text style={s.selectionPillText}>{selected.size} selected · tap to clear</Text>
+            </Pressable>
+          )}
         </View>
         <DraggableHand
           cards={orderedHand.filter((c) => !stagedIds.has(c.id))}
@@ -1068,7 +1073,16 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   handToolbar: {
-    flexDirection: 'row', gap: 6, justifyContent: 'center', paddingVertical: 4,
+    flexDirection: 'row', gap: 6, justifyContent: 'center', alignItems: 'center', paddingVertical: 4,
+  },
+  selectionPill: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+    backgroundColor: 'rgba(245,195,75,0.18)',
+    borderWidth: 1, borderColor: 'rgba(245,195,75,0.5)',
+    marginLeft: 4,
+  },
+  selectionPillText: {
+    color: theme.accent, fontSize: 11, fontWeight: '800', letterSpacing: 0.3,
   },
   hand: {
     paddingLeft: 40,

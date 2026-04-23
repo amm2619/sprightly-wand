@@ -97,11 +97,11 @@ export function DraggableCard({ card, style, disabled, selected, onTap }: Props)
       } else {
         runOnJS(handleDropOutcome)(null, false);
       }
-      x.value = withSpring(0, { damping: 18 });
-      y.value = withSpring(0, { damping: 18 });
-      scale.value = withSpring(1);
+      x.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
+      y.value = withSpring(0, { damping: 26, stiffness: 320, mass: 0.5 });
+      scale.value = withSpring(1, { damping: 22, stiffness: 260 });
       elevation.value = withTiming(0, { duration: 120 });
-      liftOpacity.value = withTiming(0, { duration: 220 });
+      liftOpacity.value = withTiming(0, { duration: 160 });
       runOnJS(endDrag)();
     });
 
