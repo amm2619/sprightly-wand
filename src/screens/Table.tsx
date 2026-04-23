@@ -677,7 +677,6 @@ export default function Table({ route, navigation }: Props) {
             const stagedList = Array.from(stagedIds);
             setHandOrder([...newVisibleOrder, ...stagedList]);
           }}
-          disabled={!isMyTurn || busy}
         />
       </View>
 
