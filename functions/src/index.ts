@@ -38,21 +38,44 @@ const gameLabel = (gameType?: string): string => {
  * entirely wasted push.
  */
 export const onTurnChange = onDocumentUpdated('rooms/{code}', async (event) => {
+  const code = event.params.code;
   const before = event.data?.before.data() as RoomDoc | undefined;
   const after = event.data?.after.data() as RoomDoc | undefined;
-  if (!before || !after) return;
+  if (!before || !after) {
+    logger.info('skip: no before/after', { code });
+    return;
+  }
 
   const oldTurn = before.hand?.turn;
   const newTurn = after.hand?.turn;
-  if (!newTurn || newTurn === oldTurn) return;
+  if (!newTurn) {
+    logger.info('skip: no newTurn', { code, oldTurn });
+    return;
+  }
+  if (newTurn === oldTurn) {
+    logger.info('skip: turn unchanged', { code, newTurn });
+    return;
+  }
 
   const player = after.players?.[newTurn];
-  if (!player) return;
-  if (player.connected === true) return; // already watching
+  if (!player) {
+    logger.info('skip: no player for newTurn', { code, newTurn });
+    return;
+  }
+  if (player.connected === true) {
+    logger.info('skip: player connected (foregrounded)', { code, to: newTurn });
+    return;
+  }
   const token = player.pushToken;
-  if (!token || !Expo.isExpoPushToken(token)) return;
+  if (!token) {
+    logger.info('skip: no pushToken on file', { code, to: newTurn });
+    return;
+  }
+  if (!Expo.isExpoPushToken(token)) {
+    logger.info('skip: invalid pushToken', { code, to: newTurn, tokenStart: token.slice(0, 12) });
+    return;
+  }
 
-  const code = event.params.code;
   const message: ExpoPushMessage = {
     to: token,
     sound: 'default',
