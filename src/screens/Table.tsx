@@ -48,6 +48,7 @@ import {
   startNextHand,
 } from '../net/actions';
 import { db, ensureSignedIn } from '../net/firebase';
+import { registerPushForRoom } from '../net/notifications';
 import { markConnected, RoomDoc, subscribeRoom } from '../net/room';
 import { scaleStyles, useLayoutScale } from '../theme/responsive';
 import { theme } from '../theme/colors';
@@ -166,6 +167,7 @@ export default function Table({ route, navigation }: Props) {
         (snap) => setMyHand((snap.data()?.cards ?? []) as CardT[]),
       );
       markConnected(roomCode, true).catch(() => undefined);
+      registerPushForRoom(roomCode).catch(() => undefined);
     })();
     return () => {
       unsubRoom?.();

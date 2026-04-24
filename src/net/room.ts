@@ -16,6 +16,9 @@ export type RoomPlayer = {
   nickname: string;
   connected: boolean;
   seat: 0 | 1;
+  // Expo push token, populated when the player enters the room on a device
+  // that supports push. Missing on web / simulator / Expo Go without a dev build.
+  pushToken?: string;
 };
 
 export type RoomDoc = {

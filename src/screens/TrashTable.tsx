@@ -15,6 +15,7 @@ import { canPlaceAtSlot, slotLabel } from '../games/trash/rules';
 import { StdCard } from '../games/standard/types';
 import { RootStackParamList } from '../navigation/types';
 import { ensureSignedIn } from '../net/firebase';
+import { registerPushForRoom } from '../net/notifications';
 import { markConnected, RoomDoc, subscribeRoom } from '../net/room';
 import { scaleStyles, useLayoutScale } from '../theme/responsive';
 import {
@@ -60,6 +61,7 @@ export default function TrashTable({ route, navigation }: Props) {
         setRoomLoaded(true);
       });
       markConnected(roomCode, true).catch(() => undefined);
+      registerPushForRoom(roomCode).catch(() => undefined);
     })();
     return () => {
       unsub?.();

@@ -8,6 +8,11 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DragProvider } from './src/components/DragContext';
 import { RootStackParamList } from './src/navigation/types';
+import {
+  installNotificationTapListener,
+  navigationRef,
+  setupNotificationHandler,
+} from './src/net/notifications';
 import GameOver from './src/screens/GameOver';
 import GamePick from './src/screens/GamePick';
 import HandOver from './src/screens/HandOver';
@@ -18,6 +23,8 @@ import Table from './src/screens/Table';
 import Welcome from './src/screens/Welcome';
 import { useApp } from './src/state/store';
 import { theme } from './src/theme/colors';
+
+setupNotificationHandler();
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -42,6 +49,8 @@ export default function App() {
     hydrate();
   }, [hydrate]);
 
+  useEffect(() => installNotificationTapListener(), []);
+
   if (!hydrated) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.felt, alignItems: 'center', justifyContent: 'center' }}>
@@ -54,7 +63,7 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       <DragProvider>
-      <NavigationContainer theme={navTheme}>
+      <NavigationContainer ref={navigationRef} theme={navTheme}>
         <StatusBar style="light" />
         <Stack.Navigator
           initialRouteName="Welcome"

@@ -18,6 +18,7 @@ import { IconToggle } from '../components/IconToggle';
 import { PhaseSlot } from '../components/PhaseSlot';
 import { RootStackParamList } from '../navigation/types';
 import { db, ensureSignedIn } from '../net/firebase';
+import { registerPushForRoom } from '../net/notifications';
 import { markConnected, RoomDoc, subscribeRoom } from '../net/room';
 import { scaleStyles, useLayoutScale } from '../theme/responsive';
 import {
@@ -80,6 +81,7 @@ export default function TTTTable({ route, navigation }: Props) {
         (snap) => setMyHand((snap.data()?.cards ?? []) as StdCard[]),
       );
       markConnected(roomCode, true).catch(() => undefined);
+      registerPushForRoom(roomCode).catch(() => undefined);
     })();
     return () => {
       unsubRoom?.(); unsubHand?.();
