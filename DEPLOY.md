@@ -19,16 +19,20 @@ alert if that's a concern (Billing → Budgets & alerts).
 From the repo root:
 
 ```sh
-npx firebase login          # once per machine
-npx firebase use sprightly-wand
-npx firebase deploy --only functions
+npx firebase-tools login          # once per machine
+npx firebase-tools use sprightly-wand
+npx firebase-tools deploy --only functions
 ```
+
+(The npm package is `firebase-tools`. `npx firebase …` without the `-tools` suffix
+won't resolve.) If you plan to run deploys often, install globally once and drop
+the `npx`: `npm install -g firebase-tools` → then just `firebase login`, etc.
 
 The predeploy hook in `firebase.json` runs `npm --prefix functions run build`, so the
 TypeScript in `functions/src/` compiles to `functions/lib/` before the upload.
 
 Verify: Firebase Console → Functions → `onTurnChange` should appear with a green check.
-Logs live at: `npx firebase functions:log --only onTurnChange`.
+Logs live at: `npx firebase-tools functions:log --only onTurnChange`.
 
 ## 3. Build with EAS (so push actually works)
 
@@ -63,7 +67,7 @@ paid developer account, Android only is fine for now.
 
 If a push doesn't arrive:
 
-- Check `npx firebase functions:log --only onTurnChange` — look for `turn push sent` /
+- Check `npx firebase-tools functions:log --only onTurnChange` — look for `turn push sent` /
   `turn push failed`.
 - Check Firestore: `rooms/{code}.players[uid].pushToken` is set and starts with
   `ExponentPushToken[…]`.
@@ -75,7 +79,7 @@ If a push doesn't arrive:
 After editing `functions/src/index.ts`, just re-run:
 
 ```sh
-npx firebase deploy --only functions
+npx firebase-tools deploy --only functions
 ```
 
 Client-side `src/net/notifications.ts` edits ship with the next EAS build.
