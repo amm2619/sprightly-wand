@@ -1,6 +1,8 @@
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
-import * as logger from 'firebase-functions/logger';
 import { Expo, ExpoPushMessage } from 'expo-server-sdk';
+
+const log = (msg: string, extra?: Record<string, unknown>) =>
+  console.log(`[onTurnChange] ${msg}${extra ? ' ' + JSON.stringify(extra) : ''}`);
 
 const expo = new Expo();
 
@@ -39,40 +41,41 @@ const gameLabel = (gameType?: string): string => {
  */
 export const onTurnChange = onDocumentUpdated('rooms/{code}', async (event) => {
   const code = event.params.code;
+  log('invoked', { code });
   const before = event.data?.before.data() as RoomDoc | undefined;
   const after = event.data?.after.data() as RoomDoc | undefined;
   if (!before || !after) {
-    logger.info('skip: no before/after', { code });
+    log('skip: no before/after', { code });
     return;
   }
 
   const oldTurn = before.hand?.turn;
   const newTurn = after.hand?.turn;
   if (!newTurn) {
-    logger.info('skip: no newTurn', { code, oldTurn });
+    log('skip: no newTurn', { code, oldTurn });
     return;
   }
   if (newTurn === oldTurn) {
-    logger.info('skip: turn unchanged', { code, newTurn });
+    log('skip: turn unchanged', { code, newTurn });
     return;
   }
 
   const player = after.players?.[newTurn];
   if (!player) {
-    logger.info('skip: no player for newTurn', { code, newTurn });
+    log('skip: no player for newTurn', { code, newTurn });
     return;
   }
   if (player.connected === true) {
-    logger.info('skip: player connected (foregrounded)', { code, to: newTurn });
+    log('skip: player connected (foregrounded)', { code, to: newTurn });
     return;
   }
   const token = player.pushToken;
   if (!token) {
-    logger.info('skip: no pushToken on file', { code, to: newTurn });
+    log('skip: no pushToken on file', { code, to: newTurn });
     return;
   }
   if (!Expo.isExpoPushToken(token)) {
-    logger.info('skip: invalid pushToken', { code, to: newTurn, tokenStart: (token as string).slice(0, 12) });
+    log('skip: invalid pushToken', { code, to: newTurn, tokenStart: (token as string).slice(0, 12) });
     return;
   }
 
@@ -87,8 +90,8 @@ export const onTurnChange = onDocumentUpdated('rooms/{code}', async (event) => {
 
   try {
     const tickets = await expo.sendPushNotificationsAsync([message]);
-    logger.info('turn push sent', { code, to: newTurn, tickets });
+    log('turn push sent', { code, to: newTurn, tickets });
   } catch (err) {
-    logger.error('turn push failed', { code, to: newTurn, err });
+    console.error(`[onTurnChange] turn push FAILED`, { code, to: newTurn, err: String(err) });
   }
 });
