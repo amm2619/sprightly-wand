@@ -77,6 +77,40 @@ function phaseSlots(phaseNum: number, variantId?: PhaseVariantId): PhaseSlotInfo
   return out;
 }
 
+/**
+ * For a laid run or colorRun, compute which declaredValue options are available
+ * at the low and high ends. Considers both natural-card values AND declared-value
+ * wilds already in the group, so adding a wild to e.g. [3, 4, 5, wild-as-6] sees
+ * the run as occupying 3..6 (options: low=2, high=7), not 2..5.
+ *
+ * Returns undefined for an end that would fall outside 1..12 (aces low, no 13).
+ */
+function runExtensionOptions(group: LaidGroup): { low?: number; high?: number } {
+  if (group.kind !== 'run' && group.kind !== 'colorRun') return {};
+  const N = group.cards.length;
+  const anchors: number[] = [];
+  for (const c of group.cards) {
+    if (c.kind === 'num') anchors.push(c.value);
+    else if (c.kind === 'wild' && typeof c.declaredValue === 'number') {
+      anchors.push(c.declaredValue);
+    }
+  }
+  if (anchors.length === 0) return {};
+  let start = -1;
+  for (let s = 1; s <= 13 - N; s++) {
+    const slotSet = new Set<number>();
+    for (let i = 0; i < N; i++) slotSet.add(s + i);
+    if (anchors.every((v) => slotSet.has(v))) { start = s; break; }
+  }
+  if (start < 0) return {};
+  const low = start - 1;
+  const high = start + N;
+  return {
+    low: low >= 1 ? low : undefined,
+    high: high <= 12 ? high : undefined,
+  };
+}
+
 function validateSlot(slot: PhaseSlotInfo, cards: CardT[]): boolean {
   switch (slot.kind) {
     case 'set': return isValidSet(cards, slot.size);
@@ -280,7 +314,7 @@ export default function Table({ route, navigation }: Props) {
   };
 
   // Drag a hand card onto a laid meld during hit mode — single-card hit with
-  // wild-value prompt when dropping a wild onto a 2-end-open run.
+  // wild-value prompt when dropping a wild onto a 2-end-open run (or color run).
   const onDropHit = (card: CardT, ownerUid: string, idx: number) => {
     if (!hand) return;
     const target = hand.laid[ownerUid]?.[idx];
@@ -297,27 +331,19 @@ export default function Table({ route, navigation }: Props) {
       });
     };
 
-    if (card.kind === 'wild' && target.kind === 'run') {
-      const naturals = target.cards.filter((c) => c.kind === 'num') as Array<{ value: number }>;
-      const N = target.cards.length;
-      let start = 1;
-      for (let s = 1; s <= 13 - N + 1; s++) {
-        const slots = new Set<number>();
-        for (let i = 0; i < N; i++) slots.add(s + i);
-        if (naturals.every((c) => slots.has(c.value))) { start = s; break; }
-      }
-      const lowVal = start - 1;
-      const highVal = start + N;
-      const canLow = lowVal >= 1;
-      const canHigh = highVal <= 12;
-      if (canLow && canHigh) {
+    if (card.kind === 'wild' && (target.kind === 'run' || target.kind === 'colorRun')) {
+      const { low, high } = runExtensionOptions(target);
+      if (low !== undefined && high !== undefined) {
         setWildPrompt({
           wilds: [card],
-          options: [lowVal, highVal],
+          options: [low, high],
           onResolve: async (values) => { await submit(values[card.id]); },
         });
         return;
       }
+      // Exactly one end open: forced choice, stamp it for the server.
+      if (low !== undefined) { submit(low); return; }
+      if (high !== undefined) { submit(high); return; }
     }
     submit();
   };
@@ -416,26 +442,6 @@ export default function Table({ route, navigation }: Props) {
     const target = hand.laid[ownerUid]?.[idx];
     if (!target) return;
 
-    // If any wild is being played onto a RUN and both ends are open, ask.
-    const wildsNeedingChoice: CardT[] = [];
-    if (target.kind === 'run') {
-      const naturals = target.cards.filter((c) => c.kind === 'num') as Array<{ value: number }>;
-      const N = target.cards.length;
-      let start = -1;
-      for (let s = 1; s <= 13 - N + 1; s++) {
-        const slots = new Set<number>();
-        for (let i = 0; i < N; i++) slots.add(s + i);
-        if (naturals.every((c) => slots.has(c.value))) { start = s; break; }
-      }
-      const canLow = start > 1;
-      const canHigh = start + N <= 12;
-      if (canLow && canHigh) {
-        for (const c of selectedCards) {
-          if (c.kind === 'wild') wildsNeedingChoice.push(c);
-        }
-      }
-    }
-
     const submit = async (wildValues: Record<string, number>) => {
       await doAction(async () => {
         await hitGroupMulti(
@@ -453,26 +459,32 @@ export default function Table({ route, navigation }: Props) {
       });
     };
 
-    if (wildsNeedingChoice.length > 0) {
-      // Compute current run bounds for value options.
-      const naturals = target.cards.filter((c) => c.kind === 'num') as Array<{ value: number }>;
-      const N = target.cards.length;
-      let start = 1;
-      for (let s = 1; s <= 13 - N + 1; s++) {
-        const slots = new Set<number>();
-        for (let i = 0; i < N; i++) slots.add(s + i);
-        if (naturals.every((c) => slots.has(c.value))) { start = s; break; }
+    // If any wild is being played onto a run/colorRun, assign declaredValue.
+    if (target.kind === 'run' || target.kind === 'colorRun') {
+      const { low, high } = runExtensionOptions(target);
+      const wilds = selectedCards.filter((c) => c.kind === 'wild');
+      if (wilds.length > 0) {
+        if (low !== undefined && high !== undefined) {
+          setWildPrompt({
+            wilds,
+            options: [low, high],
+            onResolve: submit,
+          });
+          return;
+        }
+        // Exactly one end open and exactly one wild → stamp it.
+        // Multi-wild forced case: leave unstamped so the server's iterative
+        // applyHit can assign each wild to successive open slots.
+        if (wilds.length === 1) {
+          const forced = low !== undefined ? low : high;
+          if (forced !== undefined) {
+            await submit({ [wilds[0].id]: forced });
+            return;
+          }
+        }
       }
-      const lowVal = start - 1;
-      const highVal = start + N;
-      setWildPrompt({
-        wilds: wildsNeedingChoice,
-        options: [lowVal, highVal].filter((v) => v >= 1 && v <= 12),
-        onResolve: submit,
-      });
-      return;
     }
-    // No choice needed — submit directly.
+    // No wilds, or no choice to make — submit directly.
     await submit({});
   };
   const onCancelHit = () => { setMode('normal'); setSelected(new Set()); setError(null); setWildPrompt(null); };
