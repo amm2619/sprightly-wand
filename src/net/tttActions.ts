@@ -29,6 +29,8 @@ export type TTTHand = {
   laid: Record<string, LaidGroup[]>;
   counts: Record<string, number>;
   wentOut: string | null;
+  // See HandState.topDiscardIsFresh — same meaning.
+  topDiscardIsFresh: boolean;
 };
 
 export type TTTProgress = { totalScore: number };
@@ -101,6 +103,7 @@ export async function startTTTHand(code: string): Promise<void> {
       laid: { [seat0]: [], [seat1]: [] },
       counts: { [seat0]: hands[0].length, [seat1]: hands[1].length },
       wentOut: null,
+      topDiscardIsFresh: false,
     };
 
     tx.update(roomRef(code), {
@@ -165,6 +168,7 @@ export async function drawFromDiscardTTT(code: string): Promise<void> {
     tx.update(roomRef(code), {
       'hand.discard': discard,
       'hand.hasDrawn': true,
+      'hand.topDiscardIsFresh': false,
       [`hand.counts.${uid}`]: myHand.length,
       lastAction: { type: 'drawDiscardTTT', by: uid, at: serverTimestamp() },
     });
@@ -297,6 +301,7 @@ export async function discardTTT(code: string, cardId: string): Promise<void> {
     if (hand.wentOut) {
       tx.update(roomRef(code), {
         'hand.discard': newDiscard,
+        'hand.topDiscardIsFresh': true,
         [`hand.counts.${uid}`]: newHand.length,
         status: 'handOver',
         lastAction: { type: 'tttLastChanceDone', by: uid, at: serverTimestamp() },
@@ -312,6 +317,7 @@ export async function discardTTT(code: string, cardId: string): Promise<void> {
       }
       tx.update(roomRef(code), {
         'hand.discard': newDiscard,
+        'hand.topDiscardIsFresh': true,
         [`hand.counts.${uid}`]: 0,
         'hand.wentOut': uid,
         'hand.turn': opp,
@@ -324,6 +330,7 @@ export async function discardTTT(code: string, cardId: string): Promise<void> {
 
     tx.update(roomRef(code), {
       'hand.discard': newDiscard,
+      'hand.topDiscardIsFresh': true,
       'hand.hasDrawn': false,
       'hand.turn': opp,
       [`hand.counts.${uid}`]: newHand.length,

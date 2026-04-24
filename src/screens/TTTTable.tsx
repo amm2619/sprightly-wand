@@ -367,9 +367,9 @@ export default function TTTTable({ route, navigation }: Props) {
               {hand?.discard?.length
                 ? <GameCard card={hand.discard[hand.discard.length - 1]} />
                 : <View style={s.pileEmpty} />}
-              {(hand?.discard?.length ?? 0) >= 2 && (
+              {(hand?.discard?.length ?? 0) >= 2 && hand?.topDiscardIsFresh && (
                 <View style={s.prevDiscard} pointerEvents="none">
-                  <GameCard card={hand!.discard[hand!.discard.length - 2]} small />
+                  <GameCard card={hand.discard[hand.discard.length - 2]} small />
                 </View>
               )}
               <Text style={s.pileLabel}>Discard</Text>

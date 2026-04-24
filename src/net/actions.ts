@@ -25,6 +25,10 @@ export type HandState = {
   skippedNext: Record<string, boolean>;
   counts: Record<string, number>;
   wentOut: string | null; // uid who discarded last card, null until hand ends
+  // True iff the top of discard was just placed by a discardCard action.
+  // Drives the "exponent" preview card: a fresh discard reveals what it
+  // just covered; a pickup leaves nothing newly hidden.
+  topDiscardIsFresh: boolean;
 };
 
 export type Progress = { phase: number; totalScore: number };
@@ -102,6 +106,7 @@ export async function startGame(code: string): Promise<void> {
       skippedNext: { [seat0]: false, [seat1]: false },
       counts: { [seat0]: hands[0].length, [seat1]: hands[1].length },
       wentOut: null,
+      topDiscardIsFresh: false,
     };
 
     tx.update(roomRef(code), {
@@ -170,6 +175,7 @@ export async function drawFromDiscard(code: string): Promise<void> {
     tx.update(roomRef(code), {
       'hand.discard': discard,
       'hand.hasDrawn': true,
+      'hand.topDiscardIsFresh': false,
       [`hand.counts.${uid}`]: myHand.length,
       lastAction: { type: 'drawDiscard', by: uid, at: serverTimestamp() },
     });
@@ -214,6 +220,7 @@ export async function discardCard(code: string, cardId: string): Promise<void> {
     if (newHand.length === 0) {
       tx.update(roomRef(code), {
         'hand.discard': newDiscard,
+        'hand.topDiscardIsFresh': true,
         [`hand.counts.${uid}`]: 0,
         'hand.wentOut': uid,
         'hand.skippedNext': skipped,
@@ -226,6 +233,7 @@ export async function discardCard(code: string, cardId: string): Promise<void> {
 
     tx.update(roomRef(code), {
       'hand.discard': newDiscard,
+      'hand.topDiscardIsFresh': true,
       'hand.hasDrawn': false,
       'hand.turn': nextTurn,
       [`hand.counts.${uid}`]: newHand.length,
