@@ -11,6 +11,7 @@ import { DraggableHand } from '../components/DraggableHand';
 import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
 import { MyField } from '../components/MyField';
+import { PlayerField } from '../components/PlayerField';
 import { rankLabel, StdCard, Suit } from '../games/standard/types';
 import { GroupKind, isValidRun, isValidSet, LaidGroup } from '../games/ttt/rules';
 import { IconToggle } from '../components/IconToggle';
@@ -333,26 +334,20 @@ export default function TTTTable({ route, navigation }: Props) {
 
         <View style={{ flex: 1 }}>
         {/* Opponent row */}
-        <View style={s.playerBlock}>
-          <Avatar
-            name={opp?.nickname ?? '?'}
-            wins={opponentUid ? room.seriesWins?.[opponentUid] ?? 0 : 0}
-            score={opponentUid ? room.progress?.[opponentUid]?.totalScore : undefined}
-          />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={s.playerName}>{opp?.nickname ?? '?'}</Text>
-            <Text style={s.playerMeta}>
-              {opponentUid && hand ? `${hand.counts[opponentUid] ?? 0} cards` : '—'}
-              {' · '}
-              {opponentUid ? `${room.progress?.[opponentUid]?.totalScore ?? 0} pts total` : ''}
-            </Text>
-          </View>
-        </View>
-        {oppLaid.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.meldRow}>
-            {oppLaid.map((g, i) => <MeldDisplay key={i} group={g} />)}
-          </ScrollView>
-        )}
+        <PlayerField
+          orientation="top"
+          name={opp?.nickname ?? '?'}
+          wins={opponentUid ? room.seriesWins?.[opponentUid] ?? 0 : 0}
+          score={opponentUid ? room.progress?.[opponentUid]?.totalScore : undefined}
+          connected={opp?.connected !== false}
+          meta={opponentUid && hand ? `${hand.counts[opponentUid] ?? 0} cards` : undefined}
+        >
+          {oppLaid.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.meldRow}>
+              {oppLaid.map((g, i) => <MeldDisplay key={i} group={g} />)}
+            </ScrollView>
+          ) : null}
+        </PlayerField>
 
         {/* Piles + wild banner */}
         <View style={s.midRow}>
@@ -399,31 +394,41 @@ export default function TTTTable({ route, navigation }: Props) {
                   : `Waiting for ${opp?.nickname ?? 'opponent'}…`}
         </Text>
 
-        {/* My laid melds — visible whenever laid, drag-target in extend mode */}
-        {alreadyLaid && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.meldsScroll}>
-            {myLaid.map((g, i) => (
-              <DropZoneView
-                key={i}
-                id={`ttt-extend-${i}`}
-                target={{ kind: 'extend', groupIndex: i }}
-                enabled={mode === 'extend' && isMyTurn && !!hand?.hasDrawn && !busy}
-              >
-                <PhaseSlot
-                  slot={{ kind: g.kind, size: g.cards.length, label: `${g.kind} of ${g.cards.length}` }}
-                  cards={g.cards}
-                  locked
-                  target={mode === 'extend'}
-                  onPress={mode === 'extend' ? () => onTapMyMeld(i) : undefined}
-                />
-              </DropZoneView>
-            ))}
-          </ScrollView>
-        )}
-
         </View>
 
         <MyField>
+        {/* My identity + laid melds (visible whenever laid, drag-target in extend mode) */}
+        <PlayerField
+          orientation="bottom"
+          name={me?.nickname ?? 'You'}
+          isMe
+          connected
+          wins={myUid ? room.seriesWins?.[myUid] ?? 0 : 0}
+          score={myUid ? room.progress?.[myUid]?.totalScore : undefined}
+          meta={`${myHand.length} cards`}
+        >
+          {alreadyLaid ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.meldsScroll}>
+              {myLaid.map((g, i) => (
+                <DropZoneView
+                  key={i}
+                  id={`ttt-extend-${i}`}
+                  target={{ kind: 'extend', groupIndex: i }}
+                  enabled={mode === 'extend' && isMyTurn && !!hand?.hasDrawn && !busy}
+                >
+                  <PhaseSlot
+                    slot={{ kind: g.kind, size: g.cards.length, label: `${g.kind} of ${g.cards.length}` }}
+                    cards={g.cards}
+                    locked
+                    target={mode === 'extend'}
+                    onPress={mode === 'extend' ? () => onTapMyMeld(i) : undefined}
+                  />
+                </DropZoneView>
+              ))}
+            </ScrollView>
+          ) : null}
+        </PlayerField>
+
         {/* My hand row */}
         <View style={s.handWrap}>
           <View style={s.handToolbar}>
@@ -442,10 +447,6 @@ export default function TTTTable({ route, navigation }: Props) {
                 <Text style={s.selectionPillText}>{selected.size} selected · tap to clear</Text>
               </Pressable>
             )}
-          </View>
-          <View style={s.meRow}>
-            <Text style={s.playerName}>{me?.nickname ?? 'You'}  {myUid && room.seriesWins?.[myUid] ? `🏆${room.seriesWins[myUid]}` : ''}</Text>
-            <Text style={s.playerMeta}>{myHand.length} cards · {myUid ? room.progress?.[myUid]?.totalScore ?? 0 : 0} pts total</Text>
           </View>
           <DraggableHand
             cards={orderedHand.filter((c) => !stagedIds.has(c.id))}
@@ -592,23 +593,6 @@ function suitOrder(s: Suit): number {
   return { spade: 0, heart: 1, club: 2, diamond: 3 }[s];
 }
 
-function Avatar({ name, wins, score }: { name: string; wins: number; score?: number }) {
-  const initial = (name[0] ?? '?').toUpperCase();
-  return (
-    <View style={{ width: 56, alignItems: 'center' }}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initial}</Text>
-      </View>
-      {wins > 0 && <Text style={styles.winBadge}>🏆{wins}</Text>}
-      {typeof score === 'number' && (
-        <View style={styles.avatarScorePill}>
-          <Text style={styles.avatarScoreText}>{score} pts</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
 function MeldDisplay({ group }: { group: LaidGroup }) {
   return (
     <View style={styles.meld}>
@@ -711,26 +695,6 @@ const styles = StyleSheet.create({
   quitText: { color: theme.inkDim, fontSize: 11, fontWeight: '700' },
   offlineBanner: { backgroundColor: '#3a1a1a', paddingVertical: 6, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: theme.danger },
   offlineText: { color: '#ffb3b3', fontSize: 12, textAlign: 'center', fontWeight: '600' },
-  playerBlock: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 },
-  avatar: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: theme.feltLight, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: theme.feltDark,
-  },
-  avatarText: { color: theme.ink, fontWeight: '800', fontSize: 16 },
-  winBadge: { color: theme.accent, fontSize: 10, marginTop: 2, fontWeight: '700' },
-  avatarScorePill: {
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    backgroundColor: 'rgba(245,195,75,0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(245,195,75,0.5)',
-  },
-  avatarScoreText: { color: theme.accent, fontSize: 11, fontWeight: '800' },
-  playerName: { color: theme.ink, fontSize: 14, fontWeight: '700' },
-  playerMeta: { color: theme.inkDim, fontSize: 11, marginTop: 1 },
   meldRow: { paddingHorizontal: 12, paddingBottom: 6, gap: 8 },
   meldsScroll: { paddingHorizontal: 8, paddingVertical: 6, gap: 8, alignItems: 'flex-start' },
   layHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -791,7 +755,6 @@ const styles = StyleSheet.create({
   },
   iconBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: theme.feltLight, backgroundColor: theme.feltDark },
   iconBtnText: { color: theme.inkDim, fontSize: 11, fontWeight: '700' },
-  meRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 4 },
   hand: { paddingLeft: 40, paddingRight: 16, paddingVertical: 8, minHeight: 110 },
   handCard: {},
   handCardOverlap: { marginLeft: -36 },

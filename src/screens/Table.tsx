@@ -20,6 +20,7 @@ import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
 import { IconToggle as SharedIconToggle } from '../components/IconToggle';
 import { MyField } from '../components/MyField';
+import { PhaseBadge, PlayerField } from '../components/PlayerField';
 import { PhaseSlot, PhaseSlotInfo } from '../components/PhaseSlot';
 import {
   isValidColorGroup,
@@ -537,37 +538,33 @@ export default function Table({ route, navigation }: Props) {
 
       <View style={{ flex: 1 }}>
       {/* Opponent header */}
-      <View style={s.playerHeader}>
-        <Avatar
-          name={opp?.nickname ?? '?'}
-          phase={oppPhaseNum}
-          wins={opponentUid ? room.seriesWins?.[opponentUid] : 0}
-          score={oppProgress?.totalScore}
-          connected={opp?.connected !== false}
-        />
-        <View style={s.phasesCenter}>
-          {oppLaid.length > 0 ? (
-            oppLaid.map((g, i) => (
-              <DropZoneView
-                key={i}
-                id={`opp-laid-${i}`}
-                target={{ kind: 'hit', ownerUid: opponentUid!, groupIndex: i }}
-                enabled={mode === 'hit' && !!opponentUid && isMyTurn && !!hand?.hasDrawn && !busy}
-              >
-                <PhaseSlot
-                  slot={{ kind: g.kind, size: g.cards.length, label: g.kind }}
-                  cards={g.cards}
-                  locked
-                  highlighted={mode === 'hit'}
-                  onPress={mode === 'hit' && opponentUid ? () => onPickHitTarget(opponentUid, i) : undefined}
-                />
-              </DropZoneView>
-            ))
-          ) : (
-            oppSlots.map((s, i) => <PhaseSlot key={i} slot={s} />)
-          )}
-        </View>
-      </View>
+      <PlayerField
+        orientation="top"
+        name={opp?.nickname ?? '?'}
+        wins={opponentUid ? room.seriesWins?.[opponentUid] : 0}
+        score={oppProgress?.totalScore}
+        connected={opp?.connected !== false}
+        badge={<PhaseBadge num={oppPhaseNum} />}
+      >
+        {oppLaid.length > 0
+          ? oppLaid.map((g, i) => (
+            <DropZoneView
+              key={i}
+              id={`opp-laid-${i}`}
+              target={{ kind: 'hit', ownerUid: opponentUid!, groupIndex: i }}
+              enabled={mode === 'hit' && !!opponentUid && isMyTurn && !!hand?.hasDrawn && !busy}
+            >
+              <PhaseSlot
+                slot={{ kind: g.kind, size: g.cards.length, label: g.kind }}
+                cards={g.cards}
+                locked
+                highlighted={mode === 'hit'}
+                onPress={mode === 'hit' && opponentUid ? () => onPickHitTarget(opponentUid, i) : undefined}
+              />
+            </DropZoneView>
+          ))
+          : oppSlots.map((slot, i) => <PhaseSlot key={i} slot={slot} />)}
+      </PlayerField>
 
       {/* Piles */}
       <View style={s.piles}>
@@ -627,60 +624,58 @@ export default function Table({ route, navigation }: Props) {
 
       <MyField>
       {/* My phase slots */}
-      <View style={s.playerHeader}>
-        <Avatar
-          name={me?.nickname ?? '?'}
-          phase={myPhaseNum}
-          wins={myUid ? room.seriesWins?.[myUid] : 0}
-          score={myProgress?.totalScore}
-          me
-          connected
-        />
-        <View style={s.phasesCenter}>
-          {alreadyLaid
-            ? myLaid.map((g, i) => (
+      <PlayerField
+        orientation="bottom"
+        name={me?.nickname ?? '?'}
+        wins={myUid ? room.seriesWins?.[myUid] : 0}
+        score={myProgress?.totalScore}
+        isMe
+        connected
+        badge={<PhaseBadge num={myPhaseNum} />}
+      >
+        {alreadyLaid
+          ? myLaid.map((g, i) => (
+            <DropZoneView
+              key={i}
+              id={`my-laid-${i}`}
+              target={{ kind: 'hit', ownerUid: myUid, groupIndex: i }}
+              enabled={mode === 'hit' && isMyTurn && !!hand?.hasDrawn && !busy}
+            >
+              <PhaseSlot
+                slot={{ kind: g.kind, size: g.cards.length, label: g.kind }}
+                cards={g.cards}
+                locked
+                highlighted={mode === 'hit'}
+                onPress={mode === 'hit' && myUid ? () => onPickHitTarget(myUid, i) : undefined}
+              />
+            </DropZoneView>
+          ))
+          : mySlots.map((slotInfo, i) => {
+            const stagedIdList = staged[i] ?? [];
+            const cardsInSlot = stagedIdList
+              .map((id) => myHand.find((c) => c.id === id))
+              .filter(Boolean) as CardT[];
+            return (
               <DropZoneView
                 key={i}
-                id={`my-laid-${i}`}
-                target={{ kind: 'hit', ownerUid: myUid, groupIndex: i }}
-                enabled={mode === 'hit' && isMyTurn && !!hand?.hasDrawn && !busy}
+                id={`my-slot-${i}`}
+                target={{ kind: 'slot', slotIndex: i }}
+                enabled={mode === 'lay' && isMyTurn && !!hand?.hasDrawn && !busy}
+                ghost
               >
                 <PhaseSlot
-                  slot={{ kind: g.kind, size: g.cards.length, label: g.kind }}
-                  cards={g.cards}
-                  locked
-                  highlighted={mode === 'hit'}
-                  onPress={mode === 'hit' && myUid ? () => onPickHitTarget(myUid, i) : undefined}
+                  slot={slotInfo}
+                  cards={cardsInSlot.length ? cardsInSlot : undefined}
+                  target={mode === 'lay'}
+                  onPress={mode === 'lay' ? () => onPlaceIntoSlot(i) : undefined}
                 />
               </DropZoneView>
-            ))
-            : mySlots.map((slotInfo, i) => {
-              const stagedIdList = staged[i] ?? [];
-              const cardsInSlot = stagedIdList
-                .map((id) => myHand.find((c) => c.id === id))
-                .filter(Boolean) as CardT[];
-              return (
-                <DropZoneView
-                  key={i}
-                  id={`my-slot-${i}`}
-                  target={{ kind: 'slot', slotIndex: i }}
-                  enabled={mode === 'lay' && isMyTurn && !!hand?.hasDrawn && !busy}
-                  ghost
-                >
-                  <PhaseSlot
-                    slot={slotInfo}
-                    cards={cardsInSlot.length ? cardsInSlot : undefined}
-                    target={mode === 'lay'}
-                    onPress={mode === 'lay' ? () => onPlaceIntoSlot(i) : undefined}
-                  />
-                </DropZoneView>
-              );
-            })}
-          {myPhaseNum > 10 && (
-            <Text style={s.dim}>All phases complete</Text>
-          )}
-        </View>
-      </View>
+            );
+          })}
+        {myPhaseNum > 10 && (
+          <Text style={s.dim}>All phases complete</Text>
+        )}
+      </PlayerField>
 
 
       {/* My hand — drag to reorder, drag onto slots/melds/discard to act */}
@@ -832,29 +827,6 @@ function colorOrder(c: 'red' | 'blue' | 'green' | 'yellow'): number {
   return { red: 0, yellow: 1, green: 2, blue: 3 }[c];
 }
 
-function Avatar({
-  name, phase, wins, score, me, connected,
-}: { name: string; phase: number; wins?: number; score?: number; me?: boolean; connected?: boolean }) {
-  const initial = (name[0] ?? '?').toUpperCase();
-  return (
-    <View style={styles.avatarBox}>
-      <View style={[styles.avatar, me && styles.avatarMe, connected === false && styles.avatarOffline]}>
-        <Text style={styles.avatarText}>{initial}</Text>
-      </View>
-      <Text numberOfLines={1} style={styles.avatarName}>
-        {name}{wins && wins > 0 ? `  🏆${wins}` : ''}
-      </Text>
-      <View style={styles.avatarScorePill}>
-        <Text style={styles.avatarScoreText}>{score ?? 0} pts</Text>
-      </View>
-      <View style={styles.phaseBadge}>
-        <Text style={styles.phaseBadgeText}>{phase > 10 ? '★' : phase}</Text>
-      </View>
-      {connected === false && <View style={styles.offlineDot} />}
-    </View>
-  );
-}
-
 function SmallBtn({ label, onPress, primary, disabled }: { label: string; onPress?: () => void; primary?: boolean; disabled?: boolean }) {
   return (
     <Pressable
@@ -991,58 +963,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  playerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-  },
-  phasesCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
   slotsRow: { paddingHorizontal: 4, alignItems: 'center' },
 
-  avatarBox: {
-    alignItems: 'center',
-    width: 60,
-    marginRight: 4,
-  },
-  avatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: theme.feltLight,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: theme.feltDark,
-  },
-  avatarMe: {
-    borderColor: theme.accent,
-  },
-  avatarOffline: {
-    opacity: 0.5,
-    borderColor: theme.danger,
-  },
-  avatarText: { color: theme.ink, fontWeight: '800', fontSize: 18 },
-  avatarName: { color: theme.inkDim, fontSize: 10, marginTop: 2 },
-  avatarScorePill: {
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    backgroundColor: 'rgba(245,195,75,0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(245,195,75,0.5)',
-  },
-  avatarScoreText: { color: theme.accent, fontSize: 11, fontWeight: '800' },
-  offlineDot: {
-    position: 'absolute',
-    bottom: 14, left: 4,
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: theme.danger,
-    borderWidth: 2, borderColor: theme.felt,
-  },
   offlineBanner: {
     backgroundColor: '#3a1a1a',
     paddingVertical: 6,
@@ -1056,15 +978,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
   },
-  phaseBadge: {
-    position: 'absolute', top: -4, right: 4,
-    minWidth: 20, height: 20, borderRadius: 10,
-    backgroundColor: theme.accent,
-    paddingHorizontal: 4,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  phaseBadgeText: { color: theme.feltDark, fontSize: 11, fontWeight: '800' },
-
   piles: {
     flexDirection: 'row', gap: 32, justifyContent: 'center', marginVertical: 18,
   },

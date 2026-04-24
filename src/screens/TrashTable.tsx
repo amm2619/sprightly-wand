@@ -10,6 +10,7 @@ import { DraggableCard } from '../components/DraggableCard';
 import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
 import { MyField } from '../components/MyField';
+import { PlayerField } from '../components/PlayerField';
 import { canPlaceAtSlot, slotLabel } from '../games/trash/rules';
 import { StdCard } from '../games/standard/types';
 import { RootStackParamList } from '../navigation/types';
@@ -151,19 +152,19 @@ export default function TrashTable({ route, navigation }: Props) {
         )}
 
         {/* Opponent */}
-        <View style={s.playerBlock}>
-          <PlayerHeader
-            name={opp?.nickname ?? '?'}
-            roundSize={opponentUid ? hand?.roundSizes?.[opponentUid] ?? 10 : 10}
-            wins={opponentUid ? room.seriesWins?.[opponentUid] ?? 0 : 0}
-            connected={opp?.connected !== false}
-          />
+        <PlayerField
+          orientation="top"
+          name={opp?.nickname ?? '?'}
+          wins={opponentUid ? room.seriesWins?.[opponentUid] ?? 0 : 0}
+          connected={opp?.connected !== false}
+          meta={`Round to ${opponentUid ? hand?.roundSizes?.[opponentUid] ?? 10 : 10}`}
+        >
           <SlotGrid
             slots={opponentUid && hand?.faceUp?.[opponentUid] ? hand.faceUp[opponentUid] : []}
             roundSize={opponentUid ? hand?.roundSizes?.[opponentUid] ?? 0 : 0}
             opponent
           />
-        </View>
+        </PlayerField>
 
         {/* Middle: Deck, Held (if any), Discard */}
         <View style={s.midRow}>
@@ -225,14 +226,14 @@ export default function TrashTable({ route, navigation }: Props) {
 
         <MyField>
         {/* My slots */}
-        <View style={s.playerBlock}>
-          <PlayerHeader
-            name={me?.nickname ?? '?'}
-            roundSize={myUid ? hand?.roundSizes?.[myUid] ?? 10 : 10}
-            wins={myUid ? room.seriesWins?.[myUid] ?? 0 : 0}
-            me
-            connected
-          />
+        <PlayerField
+          orientation="bottom"
+          name={me?.nickname ?? '?'}
+          isMe
+          connected
+          wins={myUid ? room.seriesWins?.[myUid] ?? 0 : 0}
+          meta={`Round to ${myUid ? hand?.roundSizes?.[myUid] ?? 10 : 10}`}
+        >
           <SlotGrid
             slots={myUid && hand?.faceUp?.[myUid] ? hand.faceUp[myUid] : []}
             roundSize={myUid ? hand?.roundSizes?.[myUid] ?? 0 : 0}
@@ -243,7 +244,7 @@ export default function TrashTable({ route, navigation }: Props) {
                 : undefined
             }
           />
-        </View>
+        </PlayerField>
 
         {/* Action bar */}
         <View style={s.actionBar}>
@@ -283,25 +284,6 @@ export default function TrashTable({ route, navigation }: Props) {
 }
 
 /* ---------- Subcomponents ---------- */
-
-function PlayerHeader({
-  name, roundSize, wins, me, connected,
-}: { name: string; roundSize: number; wins: number; me?: boolean; connected?: boolean }) {
-  const initial = (name[0] ?? '?').toUpperCase();
-  return (
-    <View style={styles.headerRow}>
-      <View style={[styles.avatar, me && styles.avatarMe, connected === false && styles.avatarOffline]}>
-        <Text style={styles.avatarText}>{initial}</Text>
-      </View>
-      <View style={{ marginLeft: 10 }}>
-        <Text style={styles.playerName}>
-          {name}{wins > 0 ? `  🏆${wins}` : ''}
-        </Text>
-        <Text style={styles.playerMeta}>Round to {roundSize} · {roundSize} slots left</Text>
-      </View>
-    </View>
-  );
-}
 
 function SlotGrid({
   slots, roundSize, opponent, onTapSlot, heldCard,
@@ -458,20 +440,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: theme.danger,
   },
   offlineText: { color: '#ffb3b3', fontSize: 12, textAlign: 'center', fontWeight: '600' },
-
-  playerBlock: { paddingHorizontal: 12, paddingVertical: 8 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  avatar: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: theme.feltLight,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: theme.feltDark,
-  },
-  avatarMe: { borderColor: theme.accent },
-  avatarOffline: { opacity: 0.5, borderColor: theme.danger },
-  avatarText: { color: theme.ink, fontWeight: '800', fontSize: 16 },
-  playerName: { color: theme.ink, fontSize: 14, fontWeight: '700' },
-  playerMeta: { color: theme.inkDim, fontSize: 11, marginTop: 1 },
 
   grid: { gap: 4, alignItems: 'center' },
   gridRow: { flexDirection: 'row', gap: 4 },
