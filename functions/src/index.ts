@@ -72,7 +72,7 @@ export const onTurnChange = onDocumentUpdated('rooms/{code}', async (event) => {
     return;
   }
   if (!Expo.isExpoPushToken(token)) {
-    logger.info('skip: invalid pushToken', { code, to: newTurn, tokenStart: token.slice(0, 12) });
+    logger.info('skip: invalid pushToken', { code, to: newTurn, tokenStart: (token as string).slice(0, 12) });
     return;
   }
 
