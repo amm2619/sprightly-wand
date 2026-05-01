@@ -550,7 +550,6 @@ export default function Table({ route, navigation }: Props) {
         </View>
       )}
 
-      <View style={{ flex: 1 }}>
       {/* Opponent header */}
       <PlayerField
         orientation="top"
@@ -580,6 +579,7 @@ export default function Table({ route, navigation }: Props) {
           : oppSlots.map((slot, i) => <PhaseSlot key={i} slot={slot} />)}
       </PlayerField>
 
+      <View style={s.middle}>
       {/* Piles */}
       <View style={s.piles}>
         <Pressable onPress={isMyTurn && !hand?.hasDrawn && !busy ? onDrawDeck : undefined}>
@@ -610,6 +610,7 @@ export default function Table({ route, navigation }: Props) {
           </Pressable>
         </DropZoneView>
       </View>
+      </View>
 
       <Text
         style={[
@@ -634,7 +635,6 @@ export default function Table({ route, navigation }: Props) {
                   : 'Your turn — draw a card'
                 : `Waiting for ${opp?.nickname ?? 'opponent'}…`}
       </Text>
-      </View>
 
       <MyField>
       {/* My phase slots */}
@@ -991,6 +991,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     fontWeight: '600',
+  },
+  middle: {
+    flex: 1, justifyContent: 'center',
   },
   piles: {
     flexDirection: 'row', gap: 32, justifyContent: 'center', marginVertical: 18,

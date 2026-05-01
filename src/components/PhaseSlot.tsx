@@ -38,9 +38,9 @@ const KIND_BADGE: Record<PhaseSlotInfo['kind'], string> = {
 export function PhaseSlot({ slot, cards, locked, target, highlighted, small, onPress }: Props) {
   const scale = useLayoutScale();
   const filled = !!cards && cards.length > 0;
-  const minW = (small ? 112 : 130) * scale;
+  const minW = (small ? 100 : 116) * scale;
   const minH = (small ? 60 : 78) * scale;
-  const maxW = (small ? 140 : 158) * scale;
+  const maxW = (small ? 132 : 150) * scale;
   const body = (
     <View style={[styles.outer, small && styles.outerSmall]}>
       <LinearGradient
@@ -141,5 +141,5 @@ const styles = StyleSheet.create({
   },
   labelSmall: { fontSize: 11 },
   cards: { flexDirection: 'row' },
-  overlap: { marginLeft: -26 },
+  overlap: { marginLeft: -22 },
 });
