@@ -1,0 +1,51 @@
+name: EAS build
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Build profile (eas.json)
+        type: choice
+        default: development
+        options: [development, preview, production]
+      platform:
+        description: Target platform
+        type: choice
+        default: all
+        options: [all, android, ios]
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - '.github/**'
+      - 'DEPLOY.md'
+
+concurrency:
+  group: eas-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+
+      - name: Run EAS build
+        env:
+          PROFILE: ${{ github.event.inputs.profile || 'development' }}
+          PLATFORM: ${{ github.event.inputs.platform || 'all' }}
+        run: eas build --profile "$PROFILE" --platform "$PLATFORM" --non-interactive --no-wait
