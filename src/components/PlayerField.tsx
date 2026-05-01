@@ -34,7 +34,7 @@ export function PlayerField({
     <View
       style={[
         styles.field,
-        isTop && { height: h, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+        isTop && { maxHeight: h, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
       ]}
       collapsable={false}
     >
