@@ -11,8 +11,8 @@ on:
       platform:
         description: Target platform
         type: choice
-        default: all
-        options: [all, android, ios]
+        default: android
+        options: [android, all, ios]
   push:
     branches: [main]
     paths-ignore:
@@ -45,5 +45,5 @@ jobs:
       - name: Run EAS build
         env:
           PROFILE: ${{ github.event.inputs.profile || 'development' }}
-          PLATFORM: ${{ github.event.inputs.platform || 'all' }}
+          PLATFORM: ${{ github.event.inputs.platform || 'android' }}
         run: eas build --profile "$PROFILE" --platform "$PLATFORM" --non-interactive --no-wait
