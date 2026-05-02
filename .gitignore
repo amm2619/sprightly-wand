@@ -18,6 +18,9 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Firebase Admin SDK / FCM service account keys — NEVER commit
+*-firebase-adminsdk-*.json
+
 # Metro
 .metro-health-check*
 

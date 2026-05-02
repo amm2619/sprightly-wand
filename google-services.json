@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "647438884542",
+    "project_id": "sprightly-wand",
+    "storage_bucket": "sprightly-wand.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:647438884542:android:f4f9ba0fe73691479248ef",
+        "android_client_info": {
+          "package_name": "com.sprightly.wand"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6DpbOGYRCJ0mUJ5ocn5WC9Sw-vmP_OvM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

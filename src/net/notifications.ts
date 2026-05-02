@@ -14,17 +14,19 @@ import { RootStackParamList } from '../navigation/types';
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 /**
- * Foreground handler. We don't need to suppress alerts — the Cloud Function
- * only sends a push when the player's `connected` flag is false (they're
- * not actively foregrounded in this room). So by the time a push actually
- * arrives client-side, we DO want the user to see it.
+ * Foreground handler — suppresses banners/sound when the app is already in
+ * the foreground (this handler is only invoked in foreground; the OS surfaces
+ * the notification directly when the app is backgrounded). The Cloud Function
+ * always sends on a turn flip without trying to gate on a `connected` flag,
+ * because Android suspends the JS thread on background and the client's
+ * `connected: false` Firestore write often doesn't make it out in time.
  */
 export function setupNotificationHandler(): void {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
+      shouldShowBanner: false,
+      shouldShowList: false,
+      shouldPlaySound: false,
       shouldSetBadge: false,
     }),
   });
@@ -50,30 +52,45 @@ let registered: Record<string, string | undefined> = {};
  */
 export async function registerPushForRoom(roomCode: string): Promise<void> {
   try {
+    console.log('[push] registerPushForRoom start', { roomCode });
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;
+    console.log('[push] existing permission', { existing });
     if (existing !== 'granted') {
       const req = await Notifications.requestPermissionsAsync();
       status = req.status;
+      console.log('[push] requested permission', { status });
     }
-    if (status !== 'granted') return;
+    if (status !== 'granted') {
+      console.log('[push] permission not granted, abort', { status });
+      return;
+    }
 
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
       (Constants as unknown as { easConfig?: { projectId?: string } }).easConfig?.projectId;
-    if (!projectId) return; // No EAS project — running in Expo Go without dev build
+    console.log('[push] projectId', { projectId });
+    if (!projectId) {
+      console.log('[push] no projectId, abort (likely Expo Go)');
+      return;
+    }
     const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    console.log('[push] got token', { tokenStart: token?.slice(0, 18) });
     if (!token) return;
 
-    if (registered[roomCode] === token) return;
+    if (registered[roomCode] === token) {
+      console.log('[push] already registered for room, skip write');
+      return;
+    }
 
     const uid = await ensureSignedIn();
     await updateDoc(doc(db, 'rooms', roomCode), {
       [`players.${uid}.pushToken`]: token,
     });
     registered[roomCode] = token;
-  } catch {
-    // Notifications unavailable (simulator, Expo Go on iOS, etc.) — silent no-op.
+    console.log('[push] wrote token to firestore', { roomCode, uid });
+  } catch (err) {
+    console.log('[push] FAILED', { err: String(err) });
   }
 }
 

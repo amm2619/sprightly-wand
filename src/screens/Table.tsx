@@ -1005,9 +1005,9 @@ const styles = StyleSheet.create({
   },
   pileLabel: { color: theme.inkDim, fontSize: 10, marginTop: 2 },
   prevDiscard: {
-    position: 'absolute', top: -10, right: -18,
-    transform: [{ scale: 0.62 }, { rotate: '10deg' }],
-    opacity: 0.92,
+    position: 'absolute', top: -28, right: -42,
+    transform: [{ scale: 0.55 }, { rotate: '12deg' }],
+    opacity: 0.45,
   },
 
   turnBanner: {

@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { theme } from '../theme/colors';
 
 type Props = {
@@ -17,15 +17,20 @@ type Props = {
   children?: ReactNode;
 };
 
-const MIN_HEIGHT = 260;
-const MAX_HEIGHT = 420;
-const TARGET_RATIO = 0.48;
+const MIN_HEIGHT = 96;
+// Vertical pixels we MUST leave room for outside the two PlayerFields:
+// topBar + piles + turnBanner + handToolbar + handWrap + actionBar + safe-area
+// padding. Tuned conservatively so even a small phone (~640dp) keeps the
+// deck/hand/buttons reachable. Both fields share `(screenHeight - RESERVED)`
+// equally, so neither side can ever push fixed UI off-screen, regardless of
+// how many melds the variant produces.
+const RESERVED_NON_FIELD_PX = 400;
 
 export function PlayerField({
   orientation, name, isMe, connected, wins, score, badge, meta, children,
 }: Props) {
-  const { height } = useWindowDimensions();
-  const h = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, height * TARGET_RATIO));
+  const { height: screenH } = useWindowDimensions();
+  const maxFieldHeight = Math.max(MIN_HEIGHT, (screenH - RESERVED_NON_FIELD_PX) / 2);
   const isTop = orientation === 'top';
   const initial = (name[0] ?? '?').toUpperCase();
   const offline = connected === false;
@@ -34,7 +39,8 @@ export function PlayerField({
     <View
       style={[
         styles.field,
-        isTop && { maxHeight: h, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+        { minHeight: MIN_HEIGHT, maxHeight: maxFieldHeight },
+        isTop && { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
       ]}
       collapsable={false}
     >
@@ -63,7 +69,13 @@ export function PlayerField({
           )}
           {meta ? <Text numberOfLines={1} style={styles.meta}>{meta}</Text> : null}
         </View>
-        <View style={styles.body}>{children}</View>
+        <ScrollView
+          style={styles.body}
+          contentContainerStyle={styles.bodyContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
       </View>
     </View>
   );
@@ -137,10 +149,13 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+  },
+  bodyContent: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     flexWrap: 'wrap',
+    paddingVertical: 4,
   },
 });
 

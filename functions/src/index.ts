@@ -33,11 +33,13 @@ const gameLabel = (gameType?: string): string => {
  * player's Expo push token, provided:
  *   - the turn actually changed (old !== new)
  *   - the new turn's player has a pushToken on file
- *   - the new turn's player is not currently connected (foregrounded)
  *
- * The client's Notifications.setNotificationHandler still suppresses any
- * stray foreground notification, but checking connected here avoids an
- * entirely wasted push.
+ * We do NOT gate on `players[uid].connected` here. Android suspends the JS
+ * thread on background, so the client's "connected: false" Firestore write
+ * often doesn't make it out before suspension — the flag is unreliable.
+ * Instead, the client's setNotificationHandler suppresses banners when the
+ * app is foregrounded (Expo only invokes that handler in foreground anyway),
+ * so an extra push to an active player is harmless: the OS doesn't surface it.
  */
 export const onTurnChange = onDocumentUpdated('rooms/{code}', async (event) => {
   const code = event.params.code;
@@ -63,10 +65,6 @@ export const onTurnChange = onDocumentUpdated('rooms/{code}', async (event) => {
   const player = after.players?.[newTurn];
   if (!player) {
     log('skip: no player for newTurn', { code, newTurn });
-    return;
-  }
-  if (player.connected === true) {
-    log('skip: player connected (foregrounded)', { code, to: newTurn });
     return;
   }
   const token = player.pushToken;

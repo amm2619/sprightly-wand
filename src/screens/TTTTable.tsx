@@ -714,9 +714,9 @@ const styles = StyleSheet.create({
   pileEmpty: { width: 68, height: 98, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: theme.feltLight },
   pileLabel: { color: theme.inkDim, fontSize: 11, marginTop: 4 },
   prevDiscard: {
-    position: 'absolute', top: -10, right: -18,
-    transform: [{ scale: 0.62 }, { rotate: '10deg' }],
-    opacity: 0.92,
+    position: 'absolute', top: -28, right: -42,
+    transform: [{ scale: 0.55 }, { rotate: '12deg' }],
+    opacity: 0.45,
   },
   wildBanner: {
     marginHorizontal: 12, marginTop: 4, padding: 10, borderRadius: 10,
