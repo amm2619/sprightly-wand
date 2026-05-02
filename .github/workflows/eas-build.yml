@@ -6,8 +6,8 @@ on:
       profile:
         description: Build profile (eas.json)
         type: choice
-        default: development
-        options: [development, preview, production]
+        default: preview
+        options: [preview, development, production]
       platform:
         description: Target platform
         type: choice
@@ -44,6 +44,6 @@ jobs:
 
       - name: Run EAS build
         env:
-          PROFILE: ${{ github.event.inputs.profile || 'development' }}
+          PROFILE: ${{ github.event.inputs.profile || 'preview' }}
           PLATFORM: ${{ github.event.inputs.platform || 'android' }}
         run: eas build --profile "$PROFILE" --platform "$PLATFORM" --non-interactive --no-wait
