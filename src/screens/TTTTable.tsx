@@ -335,21 +335,89 @@ export default function TTTTable({ route, navigation }: Props) {
         )}
 
         <View style={{ flex: 1 }}>
-        {/* Opponent row */}
-        <PlayerField
-          orientation="top"
-          name={opp?.nickname ?? '?'}
-          wins={opponentUid ? room.seriesWins?.[opponentUid] ?? 0 : 0}
-          score={opponentUid ? room.progress?.[opponentUid]?.totalScore : undefined}
-          connected={opp?.connected !== false}
-          meta={opponentUid && hand ? `${hand.counts[opponentUid] ?? 0} cards` : undefined}
-        >
-          {oppLaid.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.meldRow}>
-              {oppLaid.map((g, i) => <MeldDisplay key={i} group={g} />)}
-            </ScrollView>
-          ) : null}
-        </PlayerField>
+        {/* Opponent row — replaced with inline meld picker while laying */}
+        {mode === 'lay' ? (
+          <View style={s.layInline}>
+            <View style={s.layHeaderRow}>
+              <Text style={s.layTitle}>Build your melds</Text>
+              <Text style={s.laySelectedCount}>
+                {selected.size} card{selected.size === 1 ? '' : 's'} selected
+              </Text>
+            </View>
+            <Text style={s.layHint} numberOfLines={2}>
+              Tap <Text style={{ color: theme.accent, fontWeight: '800' }}>+ Set</Text> or <Text style={{ color: theme.accent, fontWeight: '800' }}>+ Run</Text>, select 3+ cards, tap an empty slot to fill. Tap a filled slot to clear.
+            </Text>
+            {layStaging.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={s.layStageScroll}
+                contentContainerStyle={s.meldsScroll}
+              >
+                {layStaging.map((g, i) => {
+                  const byId = new Map(myHand.map((c) => [c.id, c]));
+                  const cardsInSlot = g.cardIds
+                    .map((id) => byId.get(id))
+                    .filter(Boolean) as StdCard[];
+                  const filled = cardsInSlot.length > 0;
+                  return (
+                    <DropZoneView
+                      key={i}
+                      id={`ttt-staged-${i}`}
+                      target={{ kind: 'staged', stagedIndex: i }}
+                      enabled={mode === 'lay' && isMyTurn && !!hand?.hasDrawn && !busy}
+                      ghost
+                    >
+                      <PhaseSlot
+                        slot={{
+                          kind: g.kind,
+                          size: Math.max(3, cardsInSlot.length),
+                          label: filled ? `${g.kind} of ${cardsInSlot.length}` : 'Drop cards here',
+                        }}
+                        cards={filled ? cardsInSlot : undefined}
+                        target={!filled}
+                        onPress={() => onTapStagedSlot(i)}
+                      />
+                    </DropZoneView>
+                  );
+                })}
+              </ScrollView>
+            )}
+            <View style={s.layButtons}>
+              <Button label="+ Set" variant="secondary" size="md" onPress={() => onAddEmptySlot('set')} />
+              <Button label="+ Run" variant="secondary" size="md" onPress={() => onAddEmptySlot('run')} />
+              <Button
+                label="Confirm"
+                variant="primary"
+                size="md"
+                onPress={onConfirmLay}
+                disabled={!layStaging.some((g) => g.cardIds.length > 0) || busy}
+              />
+              <Button label="Cancel" variant="ghost" size="md" onPress={onCancelLay} />
+            </View>
+          </View>
+        ) : (
+          <PlayerField
+            orientation="top"
+            name={opp?.nickname ?? '?'}
+            wins={opponentUid ? room.seriesWins?.[opponentUid] ?? 0 : 0}
+            score={opponentUid ? room.progress?.[opponentUid]?.totalScore : undefined}
+            connected={opp?.connected !== false}
+            meta={opponentUid && hand ? `${hand.counts[opponentUid] ?? 0} cards` : undefined}
+            bodyNoWrap
+          >
+            {oppLaid.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ alignSelf: 'stretch' }}
+                contentContainerStyle={s.meldRow}
+              >
+                {oppLaid.map((g, i) => <MeldDisplay key={i} group={g} />)}
+              </ScrollView>
+            ) : null}
+          </PlayerField>
+        )}
 
         {/* Piles + wild banner */}
         <View style={s.midRow}>
@@ -408,9 +476,15 @@ export default function TTTTable({ route, navigation }: Props) {
           wins={myUid ? room.seriesWins?.[myUid] ?? 0 : 0}
           score={myUid ? room.progress?.[myUid]?.totalScore : undefined}
           meta={`${myHand.length} cards`}
+          bodyNoWrap
         >
           {alreadyLaid ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.meldsScroll}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ alignSelf: 'stretch' }}
+              contentContainerStyle={s.meldsScroll}
+            >
               {myLaid.map((g, i) => (
                 <DropZoneView
                   key={i}
@@ -493,66 +567,6 @@ export default function TTTTable({ route, navigation }: Props) {
           )}
         </View>
         </MyField>
-
-        {/* Lay staging — modal so it doesn't shove the hand around */}
-        <Modal transparent animationType="slide" visible={mode === 'lay'} onRequestClose={onCancelLay}>
-          <View style={styles.layModalBg}>
-            <View style={styles.layModalCard}>
-              <View style={s.layHeaderRow}>
-                <Text style={s.layTitle}>Build your melds</Text>
-                <Text style={s.laySelectedCount}>
-                  {selected.size} card{selected.size === 1 ? '' : 's'} selected
-                </Text>
-              </View>
-              <Text style={s.layHint}>
-                Tap <Text style={{ color: theme.accent, fontWeight: '800' }}>+ Set</Text> or <Text style={{ color: theme.accent, fontWeight: '800' }}>+ Run</Text> to add a slot. Select 3+ cards, tap an empty slot to drop them in. Tap a filled slot to clear it.
-              </Text>
-              {layStaging.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.meldsScroll}>
-                  {layStaging.map((g, i) => {
-                    const byId = new Map(myHand.map((c) => [c.id, c]));
-                    const cardsInSlot = g.cardIds
-                      .map((id) => byId.get(id))
-                      .filter(Boolean) as StdCard[];
-                    const filled = cardsInSlot.length > 0;
-                    return (
-                      <DropZoneView
-                        key={i}
-                        id={`ttt-staged-${i}`}
-                        target={{ kind: 'staged', stagedIndex: i }}
-                        enabled={mode === 'lay' && isMyTurn && !!hand?.hasDrawn && !busy}
-                        ghost
-                      >
-                        <PhaseSlot
-                          slot={{
-                            kind: g.kind,
-                            size: Math.max(3, cardsInSlot.length),
-                            label: filled ? `${g.kind} of ${cardsInSlot.length}` : 'Drop cards here',
-                          }}
-                          cards={filled ? cardsInSlot : undefined}
-                          target={!filled}
-                          onPress={() => onTapStagedSlot(i)}
-                        />
-                      </DropZoneView>
-                    );
-                  })}
-                </ScrollView>
-              )}
-              <View style={s.layButtons}>
-                <Button label="+ Set" variant="secondary" size="md" onPress={() => onAddEmptySlot('set')} />
-                <Button label="+ Run" variant="secondary" size="md" onPress={() => onAddEmptySlot('run')} />
-                <Button
-                  label="Confirm lay"
-                  variant="primary"
-                  size="md"
-                  onPress={onConfirmLay}
-                  disabled={!layStaging.some((g) => g.cardIds.length > 0) || busy}
-                />
-                <Button label="Cancel" variant="ghost" size="md" onPress={onCancelLay} />
-              </View>
-            </View>
-          </View>
-        </Modal>
 
         {/* Extend — same pattern as lay */}
         <Modal transparent animationType="fade" visible={mode === 'extend'} onRequestClose={onCancelExtend}>
@@ -730,6 +744,17 @@ const styles = StyleSheet.create({
   },
   error: { color: theme.danger, fontSize: 12, textAlign: 'center', paddingHorizontal: 16, marginTop: 4 },
   layPanel: { marginHorizontal: 12, marginTop: 6, padding: 10, borderRadius: 10, backgroundColor: theme.feltDark, borderWidth: 1, borderColor: theme.accent },
+  layInline: {
+    marginHorizontal: 8,
+    marginTop: 4,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: theme.feltDark,
+    borderWidth: 1.5,
+    borderColor: theme.accent,
+    gap: 4,
+  },
+  layStageScroll: { alignSelf: 'stretch' },
   layModalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
   layModalCard: {
     backgroundColor: theme.feltDark,

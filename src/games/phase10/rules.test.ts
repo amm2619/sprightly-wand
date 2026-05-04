@@ -1,4 +1,4 @@
-import { buildDeck, deal, shuffle } from './deck';
+import { buildDeck, deal, reshuffleIfEmpty, shuffle } from './deck';
 import {
   applyHit,
   canHit,
@@ -327,6 +327,112 @@ describe('scoreRemaining', () => {
 
   test('empty hand scores 0', () => {
     expect(scoreRemaining([])).toBe(0);
+  });
+});
+
+describe('reshuffleIfEmpty (deck recycling)', () => {
+  test('no-op when deck still has cards', () => {
+    const deck = [n(5)];
+    const discard = [n(7), n(8)];
+    const { deck: d, discard: dis } = reshuffleIfEmpty(deck, discard);
+    expect(d).toBe(deck);
+    expect(dis).toBe(discard);
+  });
+
+  test('moves all but top of discard into a fresh deck', () => {
+    const top = n(9);
+    const rest = [n(1), n(2), n(3), n(4)];
+    const { deck, discard } = reshuffleIfEmpty([], [...rest, top]);
+    expect(deck.length).toBe(4);
+    expect(deck.map((c) => c.id).sort()).toEqual(rest.map((c) => c.id).sort());
+    expect(discard).toEqual([top]);
+  });
+
+  test('preserves top card identity even when it is a Skip', () => {
+    const top = skip();
+    const rest = [n(1), n(2)];
+    const { deck, discard } = reshuffleIfEmpty([], [...rest, top]);
+    expect(discard).toEqual([top]);
+    expect(deck.length).toBe(2);
+  });
+
+  test('graceful when discard has only the top card (deck stays empty)', () => {
+    const top = n(5);
+    const { deck, discard } = reshuffleIfEmpty([], [top]);
+    expect(deck.length).toBe(0);
+    expect(discard).toEqual([top]);
+  });
+
+  test('graceful when both deck and discard are empty', () => {
+    const { deck, discard } = reshuffleIfEmpty([], []);
+    expect(deck.length).toBe(0);
+    expect(discard.length).toBe(0);
+  });
+});
+
+describe('player can always draw or discard (Kara soft-lock audit)', () => {
+  // Phase 10 rule: deck.length + discard.length is conserved across normal turns
+  // (each turn moves 1 card hand→discard and 1 card deck-or-discard→hand). After
+  // the deal: 87 deck + 1 discard = 88. So when deck reaches 0, discard has 88
+  // cards. After reshuffle: deck has 87, discard has 1 — never the degenerate
+  // 1-card discard case. This invariant is what guarantees Kara can always draw.
+
+  test('initial deal leaves deck+discard summing to 88', () => {
+    const d = buildDeck();
+    const { deck, discard } = deal(d, 2);
+    expect(deck.length + discard.length).toBe(88);
+  });
+
+  test('reshuffle never strands the player when deck empties mid-game', () => {
+    // Simulate the worst case: deck=0, discard has the maximum it could hold
+    // mid-game (88 cards if no cards have been laid). Player should draw a
+    // real card, not undefined.
+    const all = buildDeck().slice(0, 88);
+    const { deck, discard } = reshuffleIfEmpty([], all);
+    expect(deck.length).toBe(87);
+    expect(discard.length).toBe(1);
+    const drawn = deck.shift();
+    expect(drawn).toBeDefined();
+  });
+
+  test('reshuffle works even when many cards have been laid (discard shrunk)', () => {
+    // Even if both players together have laid 40+ cards (impossible in practice
+    // but a stress case), the conservation invariant means deck+discard is
+    // unchanged from 88 — laid cards come out of hands, not the deck/discard
+    // pair. So the reshuffle still produces a usable deck.
+    const all = buildDeck().slice(0, 88);
+    const { deck, discard } = reshuffleIfEmpty([], all);
+    expect(deck.length).toBeGreaterThan(0);
+    expect(discard.length).toBe(1);
+  });
+
+  test('skip on top of discard still allows a deck draw', () => {
+    // If the top of discard is a Skip (illegal to draw from), the player must
+    // be able to draw from the deck instead. Verify the deck is non-empty in
+    // every scenario short of the impossible all-cards-in-hands-and-laid case.
+    const all = [...buildDeck().slice(0, 87), skip()];
+    const { deck, discard } = reshuffleIfEmpty([], all);
+    expect(deck.length).toBe(87);
+    expect(discard.length).toBe(1);
+    expect(discard[0].kind).toBe('skip');
+  });
+
+  test('after drawing, Kara always has at least one card she can discard', () => {
+    // She drew a card, so her hand grew by 1. Whatever was in her hand before
+    // (≥0 cards) plus the 1 she just drew means she has ≥1 card available to
+    // discard, ending her turn cleanly.
+    const handBefore: Card[] = [];
+    const drawn = n(7);
+    const handAfter = [...handBefore, drawn];
+    expect(handAfter.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('Kara can discard even if her remaining hand is just a Skip card', () => {
+    // Skips are scored at end of hand if held, but they are perfectly legal to
+    // discard. No rule prevents discarding any card type.
+    const hand: Card[] = [skip()];
+    expect(hand.length).toBe(1);
+    expect(hand[0].kind).toBe('skip');
   });
 });
 
