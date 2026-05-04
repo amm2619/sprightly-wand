@@ -15,6 +15,12 @@ type Props = {
   meta?: string;
   /** Game-specific board content: melds, phase slots, trash slot grid, etc. */
   children?: ReactNode;
+  /**
+   * If true, the body lays children out in a single non-wrapping row. Use this
+   * when the only child is a horizontal ScrollView so children don't get bumped
+   * onto a new vertical row when their intrinsic width exceeds the parent.
+   */
+  bodyNoWrap?: boolean;
 };
 
 const MIN_HEIGHT = 96;
@@ -27,7 +33,7 @@ const MIN_HEIGHT = 96;
 const RESERVED_NON_FIELD_PX = 400;
 
 export function PlayerField({
-  orientation, name, isMe, connected, wins, score, badge, meta, children,
+  orientation, name, isMe, connected, wins, score, badge, meta, children, bodyNoWrap,
 }: Props) {
   const { height: screenH } = useWindowDimensions();
   const maxFieldHeight = Math.max(MIN_HEIGHT, (screenH - RESERVED_NON_FIELD_PX) / 2);
@@ -71,7 +77,10 @@ export function PlayerField({
         </View>
         <ScrollView
           style={styles.body}
-          contentContainerStyle={styles.bodyContent}
+          contentContainerStyle={[
+            styles.bodyContent,
+            bodyNoWrap && styles.bodyContentNoWrap,
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {children}
@@ -156,6 +165,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     paddingVertical: 4,
+  },
+  bodyContentNoWrap: {
+    flexWrap: 'nowrap',
+    justifyContent: 'flex-start',
   },
 });
 

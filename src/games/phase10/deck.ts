@@ -43,3 +43,21 @@ export function deal(
   const discardTop = cards.shift()!;
   return { hands, deck: cards, discard: [discardTop] };
 }
+
+/**
+ * If the deck is empty, reshuffle the discard pile (preserving the top card)
+ * back into the deck. Returns new deck/discard arrays. Safe even if discard
+ * has fewer than 2 cards: in that degenerate case the deck stays empty and
+ * the caller must surface a friendly error rather than crashing.
+ */
+export function reshuffleIfEmpty(
+  deck: Card[],
+  discard: Card[],
+  rand: () => number = Math.random,
+): { deck: Card[]; discard: Card[] } {
+  if (deck.length > 0) return { deck, discard };
+  if (discard.length <= 1) return { deck, discard };
+  const top = discard[discard.length - 1];
+  const rest = discard.slice(0, -1);
+  return { deck: shuffle(rest, rand), discard: [top] };
+}

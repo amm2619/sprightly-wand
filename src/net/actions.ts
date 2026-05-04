@@ -4,7 +4,7 @@ import {
   runTransaction,
   serverTimestamp,
 } from 'firebase/firestore';
-import { buildDeck, deal, shuffle } from '../games/phase10/deck';
+import { buildDeck, deal, reshuffleIfEmpty, shuffle } from '../games/phase10/deck';
 import {
   applyHit,
   canHit,
@@ -133,14 +133,11 @@ export async function drawFromDeck(code: string): Promise<void> {
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (hand.hasDrawn) throw new Error('Already drew this turn');
 
-    let deck = [...hand.deck];
-    const discard = [...hand.discard];
+    const reshuffled = reshuffleIfEmpty([...hand.deck], [...hand.discard]);
+    const deck = reshuffled.deck;
+    const discard = reshuffled.discard;
     if (deck.length === 0) {
-      // Reshuffle all but top of discard
-      const top = discard.pop()!;
-      deck = shuffle(discard);
-      discard.length = 0;
-      discard.push(top);
+      throw new Error('Deck and discard are exhausted — wait for opponent to discard');
     }
     const drawn = deck.shift()!;
     const myHand = [...(hSnap.data().cards as Card[]), drawn];
