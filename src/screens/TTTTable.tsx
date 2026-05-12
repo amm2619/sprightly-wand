@@ -335,7 +335,7 @@ export default function TTTTable({ route, navigation }: Props) {
         )}
 
         <View style={{ flex: 1 }}>
-        {/* Opponent row — replaced with inline meld picker while laying */}
+        {/* Opponent row — replaced with inline picker while laying or extending */}
         {mode === 'lay' ? (
           <View style={s.layInline}>
             <View style={s.layHeaderRow}>
@@ -394,6 +394,21 @@ export default function TTTTable({ route, navigation }: Props) {
                 disabled={!layStaging.some((g) => g.cardIds.length > 0) || busy}
               />
               <Button label="Cancel" variant="ghost" size="md" onPress={onCancelLay} />
+            </View>
+          </View>
+        ) : mode === 'extend' ? (
+          <View style={s.layInline}>
+            <View style={s.layHeaderRow}>
+              <Text style={s.layTitle}>Extend a meld</Text>
+              <Text style={s.laySelectedCount}>
+                {selected.size} card{selected.size === 1 ? '' : 's'} selected
+              </Text>
+            </View>
+            <Text style={s.layHint} numberOfLines={2}>
+              Pick one card from your hand, then tap one of your melds below (or drag the card onto it).
+            </Text>
+            <View style={s.layButtons}>
+              <Button label="Cancel" variant="ghost" size="md" onPress={onCancelExtend} />
             </View>
           </View>
         ) : (
@@ -567,19 +582,6 @@ export default function TTTTable({ route, navigation }: Props) {
           )}
         </View>
         </MyField>
-
-        {/* Extend — same pattern as lay */}
-        <Modal transparent animationType="fade" visible={mode === 'extend'} onRequestClose={onCancelExtend}>
-          <View style={styles.layModalBg}>
-            <View style={styles.layModalCard}>
-              <Text style={s.layTitle}>Extend a meld</Text>
-              <Text style={s.layHint}>Pick one card, then tap one of your melds above.</Text>
-              <View style={s.layButtons}>
-                <Button label="Cancel" variant="ghost" size="md" onPress={onCancelExtend} />
-              </View>
-            </View>
-          </View>
-        </Modal>
 
         {showHandOver && !showGameOver && (
           <HandOverModal
