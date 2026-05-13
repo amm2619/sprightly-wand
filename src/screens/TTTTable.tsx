@@ -310,6 +310,10 @@ export default function TTTTable({ route, navigation }: Props) {
   const showHandOver = room.status === 'handOver' && room.handResult;
   const showGameOver = room.status === 'gameOver';
   const canGoOut = alreadyLaid;
+  // Opponent already went out — this is our forced last-chance turn. Discarding
+  // (including our last card) just ends the hand; the meld requirement doesn't
+  // apply because we aren't the one going out.
+  const isLastChance = !!hand?.wentOut && hand.wentOut !== myUid;
 
   return (
     <FeltBackground variant="ttt">
@@ -558,7 +562,7 @@ export default function TTTTable({ route, navigation }: Props) {
                 variant="primary"
                 size="lg"
                 onPress={onDiscard}
-                disabled={!isMyTurn || !hand?.hasDrawn || selected.size !== 1 || busy || (myHand.length === 1 && !canGoOut)}
+                disabled={!isMyTurn || !hand?.hasDrawn || selected.size !== 1 || busy || (myHand.length === 1 && !canGoOut && !isLastChance)}
               />
               {!alreadyLaid && (
                 <Button
