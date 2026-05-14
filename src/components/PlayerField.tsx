@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useApp } from '../state/store';
 import { theme } from '../theme/colors';
 
 type Props = {
@@ -24,19 +25,25 @@ type Props = {
 };
 
 const MIN_HEIGHT = 96;
+const MIN_HEIGHT_COMPACT = 64;
 // Vertical pixels we MUST leave room for outside the two PlayerFields:
 // topBar + piles + turnBanner + handToolbar + handWrap + actionBar + safe-area
 // padding. Tuned conservatively so even a small phone (~640dp) keeps the
 // deck/hand/buttons reachable. Both fields share `(screenHeight - RESERVED)`
 // equally, so neither side can ever push fixed UI off-screen, regardless of
-// how many melds the variant produces.
+// how many melds the variant produces. Compact mode tightens this since the
+// surrounding chrome also shrinks (see useLayoutScale).
 const RESERVED_NON_FIELD_PX = 400;
+const RESERVED_NON_FIELD_PX_COMPACT = 270;
 
 export function PlayerField({
   orientation, name, isMe, connected, wins, score, badge, meta, children, bodyNoWrap,
 }: Props) {
   const { height: screenH } = useWindowDimensions();
-  const maxFieldHeight = Math.max(MIN_HEIGHT, (screenH - RESERVED_NON_FIELD_PX) / 2);
+  const compact = useApp((s) => s.compactMode);
+  const minHeight = compact ? MIN_HEIGHT_COMPACT : MIN_HEIGHT;
+  const reserved = compact ? RESERVED_NON_FIELD_PX_COMPACT : RESERVED_NON_FIELD_PX;
+  const maxFieldHeight = Math.max(minHeight, (screenH - reserved) / 2);
   const isTop = orientation === 'top';
   const initial = (name[0] ?? '?').toUpperCase();
   const offline = connected === false;
@@ -45,7 +52,7 @@ export function PlayerField({
     <View
       style={[
         styles.field,
-        { minHeight: MIN_HEIGHT, maxHeight: maxFieldHeight },
+        { minHeight, maxHeight: maxFieldHeight },
         isTop && { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
       ]}
       collapsable={false}

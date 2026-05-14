@@ -37,6 +37,19 @@ export function makeRoomCode(): string {
   return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
 }
 
+// One fixed room per game type. Because only a known pair of players ever uses
+// this app, a static room means progress and series wins simply accumulate on
+// that document across sessions — no fresh code, no lost score.
+export const STATIC_ROOM_CODES: Record<GameType, string> = {
+  'three-thirteen': '3T13',
+  phase10: 'PH10',
+  trash: 'TR10',
+};
+
+export function roomCodeForGame(gameType: GameType): string {
+  return STATIC_ROOM_CODES[gameType];
+}
+
 /** How long a room survives before Firestore TTL sweeps it. */
 const ROOM_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -122,6 +135,83 @@ export async function createRoomWithPreset(params: {
   });
 }
 
+/**
+ * Pure: figure out the players map + hostUid after `uid` (with `nickname`)
+ * enters an existing room. Reuses a stale same-nickname seat when present so
+ * we never seat a third player. Throws if the room is genuinely full.
+ */
+function computeJoin(
+  data: RoomDoc,
+  uid: string,
+  nickname: string,
+): { players: Record<string, RoomPlayer>; hostUid: string } {
+  const players = { ...data.players };
+  let hostUid = data.hostUid;
+
+  if (players[uid]) {
+    players[uid] = { ...players[uid], nickname, connected: true };
+    return { players, hostUid };
+  }
+  // Check for a stale same-nickname entry (same human, different auth uid
+  // from a prior install/session). Take their seat instead of adding a 3rd.
+  const staleEntry = Object.entries(players).find(
+    ([, p]) => p.nickname.trim().toLowerCase() === nickname.trim().toLowerCase(),
+  );
+  if (staleEntry) {
+    const [staleUid, stalePlayer] = staleEntry;
+    delete players[staleUid];
+    players[uid] = { nickname, connected: true, seat: stalePlayer.seat };
+    // If the stale entry was the host, transfer host to our new uid.
+    if (hostUid === staleUid) hostUid = uid;
+  } else {
+    const seats = Object.values(players).map((p) => p.seat);
+    if (seats.length >= 2) throw new Error('Room is full');
+    const seat: 0 | 1 = seats.includes(0) ? 1 : 0;
+    players[uid] = { nickname, connected: true, seat };
+  }
+  return { players, hostUid };
+}
+
+/**
+ * Enter the fixed room for a game type: create it on first use, otherwise join
+ * the existing document so accumulated progress / series wins carry over.
+ * Replaces the host-a-fresh-random-code flow for the normal two-player path.
+ */
+export async function enterGameRoom(
+  nickname: string,
+  gameType: GameType,
+  phase10Variant?: string,
+): Promise<string> {
+  const uid = await ensureSignedIn();
+  const code = roomCodeForGame(gameType);
+  const ref = doc(db, 'rooms', code);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) {
+      const room: RoomDoc = {
+        createdAt: serverTimestamp(),
+        hostUid: uid,
+        players: { [uid]: { nickname, connected: true, seat: 0 } },
+        status: 'waiting',
+        gameType,
+        ...(phase10Variant ? { phase10Variant } : {}),
+      };
+      tx.set(ref, { ...room, expiresAt: expirationFromNow() });
+      return;
+    }
+    // Room already exists — join it, keeping its existing variant/progress.
+    const data = snap.data() as RoomDoc;
+    const { players, hostUid } = computeJoin(data, uid, nickname);
+    const updates: Record<string, unknown> = {
+      players,
+      expiresAt: expirationFromNow(),
+    };
+    if (hostUid !== data.hostUid) updates.hostUid = hostUid;
+    tx.update(ref, updates);
+  });
+  return code;
+}
+
 export async function joinRoom(code: string, nickname: string): Promise<void> {
   const uid = await ensureSignedIn();
   const ref = doc(db, 'rooms', code);
@@ -129,30 +219,7 @@ export async function joinRoom(code: string, nickname: string): Promise<void> {
     const snap = await tx.get(ref);
     if (!snap.exists()) throw new Error('Room not found');
     const data = snap.data() as RoomDoc;
-    const players = { ...data.players };
-    let hostUid = data.hostUid as string;
-
-    if (players[uid]) {
-      players[uid] = { ...players[uid], nickname, connected: true };
-    } else {
-      // Check for a stale same-nickname entry (same human, different auth uid
-      // from a prior install/session). Take their seat instead of adding a 3rd.
-      const staleEntry = Object.entries(players).find(
-        ([, p]) => p.nickname.trim().toLowerCase() === nickname.trim().toLowerCase(),
-      );
-      if (staleEntry) {
-        const [staleUid, stalePlayer] = staleEntry;
-        delete players[staleUid];
-        players[uid] = { nickname, connected: true, seat: stalePlayer.seat };
-        // If the stale entry was the host, transfer host to our new uid.
-        if (hostUid === staleUid) hostUid = uid;
-      } else {
-        const seats = Object.values(players).map((p) => p.seat);
-        if (seats.length >= 2) throw new Error('Room is full');
-        const seat: 0 | 1 = seats.includes(0) ? 1 : 0;
-        players[uid] = { nickname, connected: true, seat };
-      }
-    }
+    const { players, hostUid } = computeJoin(data, uid, nickname);
 
     // If this room was created with a preset and this joiner matches seat 1,
     // seed their progress + any series wins.

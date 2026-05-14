@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card as CardT } from '../games/phase10/types';
 import { StdCard } from '../games/standard/types';
 import { theme } from '../theme/colors';
-import { useLayoutScale } from '../theme/responsive';
+import { useCardScale } from '../theme/responsive';
 import { GameCard } from './Card';
 
 type AnyCard = CardT | StdCard;
@@ -36,7 +36,7 @@ const KIND_BADGE: Record<PhaseSlotInfo['kind'], string> = {
 };
 
 export function PhaseSlot({ slot, cards, locked, target, highlighted, small, onPress }: Props) {
-  const scale = useLayoutScale();
+  const scale = useCardScale();
   const filled = !!cards && cards.length > 0;
   const minW = (small ? 100 : 116) * scale;
   const minH = (small ? 60 : 78) * scale;

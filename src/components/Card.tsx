@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card as Phase10CardT, SuitColor } from '../games/phase10/types';
 import { StdCard, rankLabel, suitColor, suitGlyph } from '../games/standard/types';
 import { theme } from '../theme/colors';
-import { useLayoutScale } from '../theme/responsive';
+import { useCardScale } from '../theme/responsive';
 
 export const CARD_W = 68;
 export const CARD_H = 98;
@@ -39,7 +39,7 @@ const SUIT_GRAD: Record<SuitColor, [string, string]> = {
 };
 
 export function GameCard({ card, selected, dimmed, small, onPress, backTheme }: Props) {
-  const scale = useLayoutScale();
+  const scale = useCardScale();
   const sizeMult = small ? 0.72 : 1;
   const w = CARD_W * sizeMult * scale;
   const h = CARD_H * sizeMult * scale;
