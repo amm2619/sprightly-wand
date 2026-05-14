@@ -1,39 +1,78 @@
 rules_version = '2';
 
-// Security rules for Sprightly Wand.
+// Security rules for Sprightly Wand — a private two-player card game.
 //
-// Design:
-//  - Anyone signed in (anonymous auth) can CREATE a room; the creator becomes hostUid.
-//  - Only the two players whose uids are in `players` may read or update the room.
-//  - Subcollection `privateHands/{uid}` is readable only by that uid (hands stay secret).
+// Posture (anonymous auth, a known pair of players, no sensitive data):
+//  - Every request must be authenticated.
+//  - Any signed-in client may READ a room — a player has to read a room in
+//    order to join it, and the per-game room codes are static/shared anyway.
+//  - Only the two players listed in `players` may WRITE room/game state. A
+//    non-member may perform exactly the one update that seats themselves.
+//  - privateHands / privateSlots are the only real secret (your opponent's
+//    cards): readable only by their owner. The host may additionally read a
+//    hand while scoring a finished hand, and writes both players' hands/slots
+//    when dealing a new round.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() { return request.auth != null; }
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-    function isMember(roomData) {
-      return isSignedIn()
-        && roomData.players.keys().hasAny([request.auth.uid]);
+    function room(code) {
+      return get(/databases/$(database)/documents/rooms/$(code)).data;
+    }
+
+    function isMember(data) {
+      return isSignedIn() && (request.auth.uid in data.players);
+    }
+
+    function isHost(code) {
+      return isSignedIn() && room(code).hostUid == request.auth.uid;
     }
 
     match /rooms/{code} {
+      // Create a fresh room: you are the host and the only player.
       allow create: if isSignedIn()
         && request.resource.data.hostUid == request.auth.uid
         && request.resource.data.players.keys().hasOnly([request.auth.uid]);
 
-      allow read, update: if isMember(resource.data);
+      // Rooms aren't secret; a client must be able to read one to join it.
+      allow read: if isSignedIn();
+
+      // Members drive all game state. A non-member may only make the single
+      // update that seats themselves — a plain join, or reclaiming a stale
+      // same-nickname seat — and may never grow the room past two players.
+      allow update: if isMember(resource.data)
+        || (
+          isSignedIn()
+          && !(request.auth.uid in resource.data.players)
+          && (request.auth.uid in request.resource.data.players)
+          && request.resource.data.players.size() <= 2
+        );
+
       allow delete: if isSignedIn() && resource.data.hostUid == request.auth.uid;
 
-      // A joining player can add themselves to players even if not yet a member.
-      // Allowed as long as the only change is inserting their own uid.
-      allow update: if isSignedIn()
-        && !(request.auth.uid in resource.data.players)
-        && request.auth.uid in request.resource.data.players
-        && request.resource.data.players.size() == resource.data.players.size() + 1;
-
+      // Each player's face-down cards. Readable only by the owner; the host
+      // may also read while scoring a finished hand. Writable by the owner,
+      // and by the host (who deals both hands at the start of a round).
       match /privateHands/{uid} {
+        allow read: if isSignedIn() && (
+          request.auth.uid == uid
+          || (isHost(code) && room(code).status == 'handOver')
+        );
+        allow write: if isSignedIn() && (
+          request.auth.uid == uid || isHost(code)
+        );
+      }
+
+      // Trash face-down slots. Readable only by the owner; writable by the
+      // owner and by the host (who deals both grids at the start of a round).
+      match /privateSlots/{uid} {
         allow read: if isSignedIn() && request.auth.uid == uid;
-        allow write: if isMember(get(/databases/$(database)/documents/rooms/$(code)).data);
+        allow write: if isSignedIn() && (
+          request.auth.uid == uid || isHost(code)
+        );
       }
     }
   }
