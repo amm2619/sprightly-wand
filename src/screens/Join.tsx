@@ -50,17 +50,17 @@ export default function Join({ navigation }: Props) {
           <View style={styles.inputWrap}>
             <TextInput
               value={code}
-              onChangeText={(t) => setCode(t.replace(/[^0-9]/g, '').slice(0, 4))}
-              placeholder="0000"
+              onChangeText={(t) => setCode(t.replace(/[^0-9a-zA-Z]/g, '').toUpperCase().slice(0, 4))}
+              placeholder="PH10"
               placeholderTextColor="rgba(245,195,75,0.25)"
               style={styles.input}
-              keyboardType="number-pad"
+              autoCapitalize="characters"
               autoCorrect={false}
               maxLength={4}
               editable={!joining}
             />
           </View>
-          <Text style={styles.hint}>Four digits from your friend.</Text>
+          <Text style={styles.hint}>Four characters — e.g. PH10, 3T13, TR10.</Text>
           {error && <Text style={styles.error}>{error}</Text>}
 
           <View style={styles.actions}>

@@ -19,7 +19,7 @@ import {
 } from '../games/phase10/variants';
 import { RootStackParamList } from '../navigation/types';
 import { ensureSignedIn } from '../net/firebase';
-import { createRoom, RoomDoc, subscribeRoom } from '../net/room';
+import { enterGameRoom, RoomDoc, subscribeRoom } from '../net/room';
 import { useApp } from '../state/store';
 import { theme } from '../theme/colors';
 
@@ -42,7 +42,9 @@ export default function Host({ navigation, route }: Props) {
     (async () => {
       try {
         const uid = await ensureSignedIn();
-        const newCode = await createRoom(
+        // Fixed room per game type — created on first use, re-entered after
+        // that so progress and series wins carry across sessions.
+        const newCode = await enterGameRoom(
           nickname,
           gameType,
           gameType === 'phase10' ? variant : undefined,
@@ -120,7 +122,7 @@ export default function Host({ navigation, route }: Props) {
           {gameType === 'phase10' && (
             <Text style={styles.variantPill}>{PHASE_VARIANTS[variant].name}</Text>
           )}
-          <Text style={styles.kicker}>Your room code</Text>
+          <Text style={styles.kicker}>Room code</Text>
           {code ? (
             <View style={styles.codeWrap}>
               <Text style={styles.code}>{code}</Text>
@@ -131,7 +133,7 @@ export default function Host({ navigation, route }: Props) {
             <ActivityIndicator size="large" color={theme.accent} style={{ marginTop: 32 }} />
           )}
           {code && (
-            <Text style={styles.hint}>Share this with your friend. They enter it in "Join game."</Text>
+            <Text style={styles.hint}>This {gameLabel} room is always the same — your friend just opens {gameLabel} too. Score carries over every session.</Text>
           )}
 
           <View style={styles.statusCard}>
