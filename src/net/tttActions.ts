@@ -176,7 +176,7 @@ export async function drawFromDiscardTTT(code: string): Promise<void> {
   });
 }
 
-/** Lay ALL your melds in one shot. After this, no new melds — only extensions. */
+/** Lay one or more melds. Can be called again on later turns to lay more. */
 export async function layMelds(
   code: string,
   groups: { kind: 'set' | 'run'; cardIds: string[] }[],
@@ -190,7 +190,6 @@ export async function layMelds(
     const hand = room.hand as TTTHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (!hand.hasDrawn) throw new Error('Draw first');
-    if ((hand.laid[uid] ?? []).length > 0) throw new Error('You have already laid this hand');
     if (groups.length === 0) throw new Error('Nothing to lay');
 
     const myCards = hSnap.data().cards as StdCard[];
@@ -222,9 +221,11 @@ export async function layMelds(
     );
 
     const remaining = myCards.filter((c) => !usedIds.has(c.id));
+    // Append to anything already laid this hand — laying isn't one-shot.
+    const allLaid = [...(hand.laid[uid] ?? []), ...sortedGroups];
 
     tx.update(roomRef(code), {
-      [`hand.laid.${uid}`]: sortedGroups,
+      [`hand.laid.${uid}`]: allLaid,
       [`hand.counts.${uid}`]: remaining.length,
       lastAction: { type: 'layMelds', by: uid, at: serverTimestamp() },
     });
