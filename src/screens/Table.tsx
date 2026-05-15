@@ -149,6 +149,7 @@ export default function Table({ route, navigation }: Props) {
   } | null>(null);
 
   useKeepAwake();
+  const [showOppCards, setShowOppCards] = useState(true);
   const scale = useLayoutScale();
   const s = useMemo(() => scaleStyles(styles, scale), [scale]);
 
@@ -551,33 +552,38 @@ export default function Table({ route, navigation }: Props) {
       )}
 
       {/* Opponent header */}
-      <PlayerField
-        orientation="top"
-        name={opp?.nickname ?? '?'}
-        wins={opponentUid ? room.seriesWins?.[opponentUid] : 0}
-        score={oppProgress?.totalScore}
-        connected={opp?.connected !== false}
-        badge={<PhaseBadge num={oppPhaseNum} />}
-      >
-        {oppLaid.length > 0
-          ? oppLaid.map((g, i) => (
-            <DropZoneView
-              key={i}
-              id={`opp-laid-${i}`}
-              target={{ kind: 'hit', ownerUid: opponentUid!, groupIndex: i }}
-              enabled={mode === 'hit' && !!opponentUid && isMyTurn && !!hand?.hasDrawn && !busy}
-            >
-              <PhaseSlot
-                slot={{ kind: g.kind, size: g.cards.length, label: g.kind }}
-                cards={g.cards}
-                locked
-                highlighted={mode === 'hit'}
-                onPress={mode === 'hit' && opponentUid ? () => onPickHitTarget(opponentUid, i) : undefined}
-              />
-            </DropZoneView>
-          ))
-          : oppSlots.map((slot, i) => <PhaseSlot key={i} slot={slot} />)}
-      </PlayerField>
+      <View>
+        <Pressable onPress={() => setShowOppCards((v) => !v)} style={styles.oppToggle}>
+          <Text style={styles.oppToggleText}>{showOppCards ? '▲ Hide cards' : '▼ Show cards'}</Text>
+        </Pressable>
+        <PlayerField
+          orientation="top"
+          name={opp?.nickname ?? '?'}
+          wins={opponentUid ? room.seriesWins?.[opponentUid] : 0}
+          score={oppProgress?.totalScore}
+          connected={opp?.connected !== false}
+          badge={<PhaseBadge num={oppPhaseNum} />}
+        >
+          {showOppCards && (oppLaid.length > 0
+            ? oppLaid.map((g, i) => (
+              <DropZoneView
+                key={i}
+                id={`opp-laid-${i}`}
+                target={{ kind: 'hit', ownerUid: opponentUid!, groupIndex: i }}
+                enabled={mode === 'hit' && !!opponentUid && isMyTurn && !!hand?.hasDrawn && !busy}
+              >
+                <PhaseSlot
+                  slot={{ kind: g.kind, size: g.cards.length, label: g.kind }}
+                  cards={g.cards}
+                  locked
+                  highlighted={mode === 'hit'}
+                  onPress={mode === 'hit' && opponentUid ? () => onPickHitTarget(opponentUid, i) : undefined}
+                />
+              </DropZoneView>
+            ))
+            : oppSlots.map((slot, i) => <PhaseSlot key={i} slot={slot} />))}
+        </PlayerField>
+      </View>
 
       <View style={s.middle}>
       {/* Piles */}
@@ -948,6 +954,15 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.felt },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   dim: { color: theme.inkDim, fontSize: 12 },
+
+  oppToggle: {
+    alignSelf: 'flex-end',
+    marginRight: 10, marginTop: 2,
+    paddingHorizontal: 8, paddingVertical: 2,
+    borderRadius: 6, borderWidth: 1, borderColor: theme.feltLight,
+    backgroundColor: theme.feltDark,
+  },
+  oppToggleText: { color: theme.inkDim, fontSize: 10, fontWeight: '700' },
 
   topBar: {
     flexDirection: 'row',

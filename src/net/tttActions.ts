@@ -206,23 +206,21 @@ export async function layMelds(
       return { kind: g.kind, cards };
     });
 
-    // Validate every group.
     for (const g of laidGroups) {
       if (!isValidGroup(g, hand.wildRank as Rank)) {
         throw new Error(`Invalid ${g.kind}`);
       }
     }
 
-    // Visually sort run cards so wilds land in the correct slot.
     const sortedGroups: LaidGroup[] = laidGroups.map((g) =>
       g.kind === 'run'
         ? { kind: 'run', cards: sortRunCards(g.cards, hand.wildRank as Rank) }
         : g,
     );
 
-    const remaining = myCards.filter((c) => !usedIds.has(c.id));
-    // Append to anything already laid this hand — laying isn't one-shot.
     const allLaid = [...(hand.laid[uid] ?? []), ...sortedGroups];
+    const remaining = myCards.filter((c) => !usedIds.has(c.id));
+    if (remaining.length === 0) throw new Error('Keep at least one card — you must discard to end your turn');
 
     tx.update(roomRef(code), {
       [`hand.laid.${uid}`]: allLaid,
@@ -262,12 +260,43 @@ export async function extendOwnMeld(
     const newGroups = [...myLaid];
     newGroups[groupIdx] = updated;
     const remaining = myCards.filter((c) => c.id !== cardId);
+    if (remaining.length === 0) throw new Error('Keep at least one card — you must discard to end your turn');
+
     tx.update(roomRef(code), {
       [`hand.laid.${uid}`]: newGroups,
       [`hand.counts.${uid}`]: remaining.length,
       lastAction: { type: 'extendMeld', by: uid, at: serverTimestamp() },
     });
     tx.set(privateHandRef(code, uid), { cards: remaining });
+  });
+}
+
+/**
+ * Recovery action for rooms stuck with a player who has 0 cards but never
+ * discarded (old bug). Treats them as having gone out and gives the opponent
+ * their last-chance turn.
+ */
+export async function forceEndStuckTurnTTT(code: string): Promise<void> {
+  const uid = await ensureSignedIn();
+  await runTransaction(db, async (tx) => {
+    const rSnap = await tx.get(roomRef(code));
+    const hSnap = await tx.get(privateHandRef(code, uid));
+    if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
+    const room = rSnap.data();
+    const hand = room.hand as TTTHand;
+    if (hand.turn !== uid) throw new Error('Not your turn');
+    if (!hand.hasDrawn) throw new Error('Draw first');
+    if (hand.wentOut) throw new Error('Hand is already ending');
+    const myCards = hSnap.data().cards as StdCard[];
+    if (myCards.length !== 0) throw new Error('You still have cards — discard one');
+    const opp = other(Object.keys(room.players), uid);
+    tx.update(roomRef(code), {
+      [`hand.counts.${uid}`]: 0,
+      'hand.wentOut': uid,
+      'hand.turn': opp,
+      'hand.hasDrawn': false,
+      lastAction: { type: 'tttGoOut', by: uid, at: serverTimestamp() },
+    });
   });
 }
 
