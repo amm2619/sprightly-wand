@@ -19,8 +19,17 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function room(code) {
-      return get(/databases/$(database)/documents/rooms/$(code)).data;
+    // The room as it will be once the current operation commits.
+    //
+    // We deliberately use getAfter() rather than get(): the host deals a new
+    // round in a SINGLE transaction that writes the room doc AND both players'
+    // private hands/slots. A plain get() of the room from inside the
+    // privateHands/privateSlots rule does not resolve while the room is part
+    // of that same write set, which denied the host's deal. getAfter() reads
+    // the post-commit state, which is correct here — neither hostUid nor the
+    // statuses we check are mutated in a way that would weaken these rules.
+    function roomAfter(code) {
+      return getAfter(/databases/$(database)/documents/rooms/$(code)).data;
     }
 
     function isMember(data) {
@@ -28,7 +37,7 @@ service cloud.firestore {
     }
 
     function isHost(code) {
-      return isSignedIn() && room(code).hostUid == request.auth.uid;
+      return isSignedIn() && roomAfter(code).hostUid == request.auth.uid;
     }
 
     match /rooms/{code} {
@@ -59,7 +68,7 @@ service cloud.firestore {
       match /privateHands/{uid} {
         allow read: if isSignedIn() && (
           request.auth.uid == uid
-          || (isHost(code) && room(code).status == 'handOver')
+          || (isHost(code) && roomAfter(code).status in ['handOver', 'gameOver'])
         );
         allow write: if isSignedIn() && (
           request.auth.uid == uid || isHost(code)

@@ -580,28 +580,34 @@ export default function TTTTable({ route, navigation }: Props) {
             />
           ) : mode === 'normal' && (
             <>
-              <Button
-                label="Discard"
-                variant="primary"
-                size="lg"
-                onPress={onDiscard}
-                disabled={!isMyTurn || !hand?.hasDrawn || selected.size !== 1 || busy || (myHand.length === 1 && !canGoOut && !isLastChance)}
-              />
-              <Button
-                label={alreadyLaid ? 'Lay meld' : 'Lay melds'}
-                variant="secondary"
-                size="lg"
-                onPress={onStartLay}
-                disabled={!isMyTurn || !hand?.hasDrawn || busy}
-              />
-              {alreadyLaid && (
+              <View style={s.actionBtn}>
                 <Button
-                  label="Extend"
+                  label="Discard"
+                  variant="primary"
+                  size="md"
+                  onPress={onDiscard}
+                  disabled={!isMyTurn || !hand?.hasDrawn || selected.size !== 1 || busy || (myHand.length === 1 && !canGoOut && !isLastChance)}
+                />
+              </View>
+              <View style={s.actionBtn}>
+                <Button
+                  label={alreadyLaid ? 'Lay meld' : 'Lay melds'}
                   variant="secondary"
-                  size="lg"
-                  onPress={onStartExtend}
+                  size="md"
+                  onPress={onStartLay}
                   disabled={!isMyTurn || !hand?.hasDrawn || busy}
                 />
+              </View>
+              {alreadyLaid && (
+                <View style={s.actionBtn}>
+                  <Button
+                    label="Extend"
+                    variant="secondary"
+                    size="md"
+                    onPress={onStartExtend}
+                    disabled={!isMyTurn || !hand?.hasDrawn || busy}
+                  />
+                </View>
               )}
             </>
           )}
@@ -818,7 +824,8 @@ const styles = StyleSheet.create({
   hand: { paddingLeft: 40, paddingRight: 16, paddingVertical: 8, minHeight: 110 },
   handCard: {},
   handCardOverlap: { marginLeft: -36 },
-  actionBar: { flexDirection: 'row', gap: 8, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 10, flexWrap: 'wrap' },
+  actionBar: { flexDirection: 'row', gap: 8, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 10 },
+  actionBtn: { flex: 1 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 16 },
   modalCard: { width: '100%', maxWidth: 360, backgroundColor: theme.feltDark, borderRadius: 16, padding: 24, borderWidth: 1, borderColor: theme.feltLight, alignItems: 'center' },
   modalTitle: { color: theme.ink, fontSize: 22, fontWeight: '800' },
