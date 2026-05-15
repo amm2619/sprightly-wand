@@ -28,6 +28,7 @@ import {
   drawFromDiscardTTT,
   extendOwnMeld,
   finalizeTTTHand,
+  forceEndStuckTurnTTT,
   layMelds,
   resetTTTForRematch,
   startNextTTTHand,
@@ -316,6 +317,8 @@ export default function TTTTable({ route, navigation }: Props) {
   // (including our last card) just ends the hand; the meld requirement doesn't
   // apply because we aren't the one going out.
   const isLastChance = !!hand?.wentOut && hand.wentOut !== myUid;
+  // Legacy stuck state: player melded all cards without discarding (old bug).
+  const isStuck = isMyTurn && !!hand?.hasDrawn && myHand.length === 0 && !hand?.wentOut;
 
   return (
     <FeltBackground variant="ttt">
@@ -482,15 +485,17 @@ export default function TTTTable({ route, navigation }: Props) {
         >
           {error
             ? error
-            : hand?.wentOut && hand.wentOut !== myUid && isMyTurn
-              ? '⏱ Last chance! One more turn before scoring'
-              : hand?.wentOut && hand.wentOut === myUid
-                ? `You went out — ${opp?.nickname ?? 'opponent'} gets one last turn`
-                : isMyTurn
-                  ? hand?.hasDrawn
-                    ? alreadyLaid ? 'Extend melds or discard to end turn' : 'Lay melds or discard to end turn'
-                    : 'Your turn — draw a card'
-                  : `Waiting for ${opp?.nickname ?? 'opponent'}…`}
+            : isStuck
+              ? 'Hand is empty — tap "Go out" to end your turn'
+              : hand?.wentOut && hand.wentOut !== myUid && isMyTurn
+                ? '⏱ Last chance! One more turn before scoring'
+                : hand?.wentOut && hand.wentOut === myUid
+                  ? `You went out — ${opp?.nickname ?? 'opponent'} gets one last turn`
+                  : isMyTurn
+                    ? hand?.hasDrawn
+                      ? alreadyLaid ? 'Extend melds or discard to end turn' : 'Lay melds or discard to end turn'
+                      : 'Your turn — draw a card'
+                    : `Waiting for ${opp?.nickname ?? 'opponent'}…`}
         </Text>
 
         </View>
@@ -565,7 +570,15 @@ export default function TTTTable({ route, navigation }: Props) {
         </View>
 
         <View style={s.actionBar}>
-          {mode === 'normal' && (
+          {isStuck ? (
+            <Button
+              label="Go out"
+              variant="primary"
+              size="lg"
+              onPress={() => doAction(() => forceEndStuckTurnTTT(roomCode))}
+              disabled={busy}
+            />
+          ) : mode === 'normal' && (
             <>
               <Button
                 label="Discard"

@@ -272,6 +272,35 @@ export async function extendOwnMeld(
 }
 
 /**
+ * Recovery action for rooms stuck with a player who has 0 cards but never
+ * discarded (old bug). Treats them as having gone out and gives the opponent
+ * their last-chance turn.
+ */
+export async function forceEndStuckTurnTTT(code: string): Promise<void> {
+  const uid = await ensureSignedIn();
+  await runTransaction(db, async (tx) => {
+    const rSnap = await tx.get(roomRef(code));
+    const hSnap = await tx.get(privateHandRef(code, uid));
+    if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
+    const room = rSnap.data();
+    const hand = room.hand as TTTHand;
+    if (hand.turn !== uid) throw new Error('Not your turn');
+    if (!hand.hasDrawn) throw new Error('Draw first');
+    if (hand.wentOut) throw new Error('Hand is already ending');
+    const myCards = hSnap.data().cards as StdCard[];
+    if (myCards.length !== 0) throw new Error('You still have cards — discard one');
+    const opp = other(Object.keys(room.players), uid);
+    tx.update(roomRef(code), {
+      [`hand.counts.${uid}`]: 0,
+      'hand.wentOut': uid,
+      'hand.turn': opp,
+      'hand.hasDrawn': false,
+      lastAction: { type: 'tttGoOut', by: uid, at: serverTimestamp() },
+    });
+  });
+}
+
+/**
  * Discard a card to end your turn.
  *
  * Rules:
