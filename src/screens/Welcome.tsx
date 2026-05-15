@@ -30,7 +30,7 @@ import { theme } from '../theme/colors';
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
 export default function Welcome({ navigation }: Props) {
-  const { nickname, setNickname, lastRoomCode } = useApp();
+  const { nickname, setNickname, lastRoomCode, compactMode, setCompactMode } = useApp();
   const [draft, setDraft] = useState(nickname);
 
   useEffect(() => setDraft(nickname), [nickname]);
@@ -113,6 +113,21 @@ export default function Welcome({ navigation }: Props) {
               <Text style={[styles.rejoinText, !ready && { opacity: 0.3 }]}>
                 Resume / reset with custom state →
               </Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.compactRow, pressed && { opacity: 0.7 }]}
+              onPress={() => setCompactMode(!compactMode)}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.compactLabel}>Compact layout</Text>
+                <Text style={styles.compactHint}>
+                  Tightens spacing for split-screen — cards stay full size
+                </Text>
+              </View>
+              <View style={[styles.toggle, compactMode && styles.toggleOn]}>
+                <View style={[styles.knob, compactMode && styles.knobOn]} />
+              </View>
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -246,4 +261,41 @@ const styles = StyleSheet.create({
   actions: { gap: 14 },
   rejoin: { paddingVertical: 12, alignItems: 'center' },
   rejoinText: { color: theme.inkDim, fontSize: 14, fontWeight: '600' },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  compactLabel: { color: theme.ink, fontSize: 15, fontWeight: '700' },
+  compactHint: { color: theme.inkDim, fontSize: 12, marginTop: 2 },
+  toggle: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleOn: {
+    backgroundColor: 'rgba(245,195,75,0.35)',
+    borderColor: theme.accent,
+  },
+  knob: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: theme.inkDim,
+  },
+  knobOn: {
+    backgroundColor: theme.accent,
+    alignSelf: 'flex-end',
+  },
 });

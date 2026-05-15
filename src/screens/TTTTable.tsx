@@ -493,7 +493,7 @@ export default function TTTTable({ route, navigation }: Props) {
                   ? `You went out — ${opp?.nickname ?? 'opponent'} gets one last turn`
                   : isMyTurn
                     ? hand?.hasDrawn
-                      ? alreadyLaid ? 'Extend melds or discard to end turn' : 'Lay melds or discard to end turn'
+                      ? alreadyLaid ? 'Lay or extend melds, or discard to end turn' : 'Lay melds or discard to end turn'
                       : 'Your turn — draw a card'
                     : `Waiting for ${opp?.nickname ?? 'opponent'}…`}
         </Text>
@@ -587,15 +587,13 @@ export default function TTTTable({ route, navigation }: Props) {
                 onPress={onDiscard}
                 disabled={!isMyTurn || !hand?.hasDrawn || selected.size !== 1 || busy || (myHand.length === 1 && !canGoOut && !isLastChance)}
               />
-              {!alreadyLaid && (
-                <Button
-                  label="Lay melds"
-                  variant="secondary"
-                  size="lg"
-                  onPress={onStartLay}
-                  disabled={!isMyTurn || !hand?.hasDrawn || busy}
-                />
-              )}
+              <Button
+                label={alreadyLaid ? 'Lay meld' : 'Lay melds'}
+                variant="secondary"
+                size="lg"
+                onPress={onStartLay}
+                disabled={!isMyTurn || !hand?.hasDrawn || busy}
+              />
               {alreadyLaid && (
                 <Button
                   label="Extend"
