@@ -17,6 +17,7 @@ import { GroupKind, isValidRun, isValidSet, LaidGroup } from '../games/ttt/rules
 import { IconToggle } from '../components/IconToggle';
 import { PhaseSlot } from '../components/PhaseSlot';
 import { RootStackParamList } from '../navigation/types';
+import { useApp } from '../state/store';
 import { db, ensureSignedIn } from '../net/firebase';
 import { registerPushForRoom } from '../net/notifications';
 import { markConnected, RoomDoc, subscribeRoom } from '../net/room';
@@ -63,6 +64,7 @@ export default function TTTTable({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useKeepAwake();
+  const compact = useApp((s) => s.compactMode);
   const scale = useLayoutScale();
   const s = useMemo(() => scaleStyles(styles, scale), [scale]);
 
@@ -415,6 +417,14 @@ export default function TTTTable({ route, navigation }: Props) {
               <Button label="Cancel" variant="ghost" size="md" onPress={onCancelExtend} />
             </View>
           </View>
+        ) : compact ? (
+          <View style={s.oppCompact}>
+            <Text style={s.oppCompactText} numberOfLines={1}>
+              <Text style={s.oppCompactName}>{opp?.nickname ?? '?'}</Text>
+              {opponentUid && hand ? `  ·  ${hand.counts[opponentUid] ?? 0} cards` : ''}
+              {oppLaid.length > 0 ? `  ·  ${oppLaid.length} meld${oppLaid.length !== 1 ? 's' : ''} laid` : ''}
+            </Text>
+          </View>
         ) : (
           <PlayerField
             orientation="top"
@@ -706,6 +716,12 @@ function GameOverModal({ room, myUid, isHost, onRematch, onHome, busy }: { room:
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   dim: { color: theme.inkDim, fontSize: 14 },
+  oppCompact: {
+    paddingHorizontal: 12, paddingVertical: 5,
+    borderBottomWidth: 1, borderBottomColor: theme.feltLight,
+  },
+  oppCompactText: { color: theme.inkDim, fontSize: 12, fontWeight: '600' },
+  oppCompactName: { color: theme.ink, fontWeight: '800' },
   topBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 12, paddingVertical: 2,

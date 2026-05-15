@@ -176,7 +176,7 @@ export async function drawFromDiscardTTT(code: string): Promise<void> {
   });
 }
 
-/** Lay ALL your melds in one shot. After this, no new melds — only extensions. */
+/** Lay one or more melds. Can be called again on later turns to lay more. */
 export async function layMelds(
   code: string,
   groups: { kind: 'set' | 'run'; cardIds: string[] }[],
@@ -190,7 +190,6 @@ export async function layMelds(
     const hand = room.hand as TTTHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (!hand.hasDrawn) throw new Error('Draw first');
-    if ((hand.laid[uid] ?? []).length > 0) throw new Error('You have already laid this hand');
     if (groups.length === 0) throw new Error('Nothing to lay');
 
     const myCards = hSnap.data().cards as StdCard[];
@@ -207,24 +206,24 @@ export async function layMelds(
       return { kind: g.kind, cards };
     });
 
-    // Validate every group.
     for (const g of laidGroups) {
       if (!isValidGroup(g, hand.wildRank as Rank)) {
         throw new Error(`Invalid ${g.kind}`);
       }
     }
 
-    // Visually sort run cards so wilds land in the correct slot.
     const sortedGroups: LaidGroup[] = laidGroups.map((g) =>
       g.kind === 'run'
         ? { kind: 'run', cards: sortRunCards(g.cards, hand.wildRank as Rank) }
         : g,
     );
 
+    const allLaid = [...(hand.laid[uid] ?? []), ...sortedGroups];
     const remaining = myCards.filter((c) => !usedIds.has(c.id));
+    if (remaining.length === 0) throw new Error('Keep at least one card — you must discard to end your turn');
 
     tx.update(roomRef(code), {
-      [`hand.laid.${uid}`]: sortedGroups,
+      [`hand.laid.${uid}`]: allLaid,
       [`hand.counts.${uid}`]: remaining.length,
       lastAction: { type: 'layMelds', by: uid, at: serverTimestamp() },
     });
@@ -261,6 +260,8 @@ export async function extendOwnMeld(
     const newGroups = [...myLaid];
     newGroups[groupIdx] = updated;
     const remaining = myCards.filter((c) => c.id !== cardId);
+    if (remaining.length === 0) throw new Error('Keep at least one card — you must discard to end your turn');
+
     tx.update(roomRef(code), {
       [`hand.laid.${uid}`]: newGroups,
       [`hand.counts.${uid}`]: remaining.length,
