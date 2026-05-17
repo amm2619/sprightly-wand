@@ -452,7 +452,7 @@ export default function TTTTable({ route, navigation }: Props) {
         )}
 
         {/* Piles + wild banner */}
-        <View style={s.midRow}>
+        <View style={[s.midRow, compact && s.midRowCompact]}>
           <Pressable onPress={isMyTurn && !hand?.hasDrawn && !busy ? () => doAction(() => drawFromDeckTTT(roomCode)) : undefined} style={s.pile}>
             <GameCard backTheme="ttt" />
             <Text style={s.pileLabel}>Deck · {hand?.deck?.length ?? 0}</Text>
@@ -794,7 +794,8 @@ const styles = StyleSheet.create({
   meldLabel: { color: theme.inkDim, fontSize: 9, letterSpacing: 1, fontWeight: '800', marginBottom: 2 },
   meldCards: { flexDirection: 'row' },
   meldTarget: { borderWidth: 2, borderColor: theme.accent, borderRadius: 12 },
-  midRow: { flexDirection: 'row', gap: 24, justifyContent: 'center', marginTop: 22, marginBottom: 10 },
+  midRow: { flexDirection: 'row', gap: 24, justifyContent: 'center', marginVertical: 10 },
+  midRowCompact: { marginTop: 22 },
   pile: { alignItems: 'center' },
   pileEmpty: { width: 68, height: 98, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: theme.feltLight },
   pileLabel: { color: theme.inkDim, fontSize: 11, marginTop: 4 },
