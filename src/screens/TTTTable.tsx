@@ -501,22 +501,16 @@ export default function TTTTable({ route, navigation }: Props) {
         </View>
 
         <MyField>
-        {/* My identity + laid melds (visible whenever laid, drag-target in extend mode) */}
-        <PlayerField
-          orientation="bottom"
-          name={me?.nickname ?? 'You'}
-          isMe
-          connected
-          wins={myUid ? room.seriesWins?.[myUid] ?? 0 : 0}
-          score={myUid ? room.progress?.[myUid]?.totalScore : undefined}
-          meta={`${myHand.length} cards`}
-          bodyNoWrap
-        >
-          {alreadyLaid ? (
+        {/* My identity + laid melds (visible whenever laid, drag-target in extend mode).
+            Compact mode strips the avatar/score/wins column to give the deck and
+            hand more vertical room — leaving just the melds (and their drop
+            targets) inline. */}
+        {compact ? (
+          alreadyLaid ? (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={{ alignSelf: 'stretch' }}
+              style={s.myMeldsCompact}
               contentContainerStyle={s.meldsScroll}
             >
               {myLaid.map((g, i) => (
@@ -536,8 +530,45 @@ export default function TTTTable({ route, navigation }: Props) {
                 </DropZoneView>
               ))}
             </ScrollView>
-          ) : null}
-        </PlayerField>
+          ) : null
+        ) : (
+          <PlayerField
+            orientation="bottom"
+            name={me?.nickname ?? 'You'}
+            isMe
+            connected
+            wins={myUid ? room.seriesWins?.[myUid] ?? 0 : 0}
+            score={myUid ? room.progress?.[myUid]?.totalScore : undefined}
+            meta={`${myHand.length} cards`}
+            bodyNoWrap
+          >
+            {alreadyLaid ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ alignSelf: 'stretch' }}
+                contentContainerStyle={s.meldsScroll}
+              >
+                {myLaid.map((g, i) => (
+                  <DropZoneView
+                    key={i}
+                    id={`ttt-extend-${i}`}
+                    target={{ kind: 'extend', groupIndex: i }}
+                    enabled={mode === 'extend' && isMyTurn && !!hand?.hasDrawn && !busy}
+                  >
+                    <PhaseSlot
+                      slot={{ kind: g.kind, size: g.cards.length, label: `${g.kind} of ${g.cards.length}` }}
+                      cards={g.cards}
+                      locked
+                      target={mode === 'extend'}
+                      onPress={mode === 'extend' ? () => onTapMyMeld(i) : undefined}
+                    />
+                  </DropZoneView>
+                ))}
+              </ScrollView>
+            ) : null}
+          </PlayerField>
+        )}
 
         {/* My hand row */}
         <View style={s.handWrap}>
@@ -752,6 +783,7 @@ const styles = StyleSheet.create({
   offlineText: { color: '#ffb3b3', fontSize: 12, textAlign: 'center', fontWeight: '600' },
   meldRow: { paddingHorizontal: 12, paddingBottom: 6, gap: 8 },
   meldsScroll: { paddingHorizontal: 8, paddingVertical: 6, gap: 8, alignItems: 'flex-start' },
+  myMeldsCompact: { alignSelf: 'stretch', paddingHorizontal: 4 },
   layHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   laySelectedCount: { color: theme.accent, fontSize: 11, fontWeight: '700' },
   meld: {
@@ -762,7 +794,7 @@ const styles = StyleSheet.create({
   meldLabel: { color: theme.inkDim, fontSize: 9, letterSpacing: 1, fontWeight: '800', marginBottom: 2 },
   meldCards: { flexDirection: 'row' },
   meldTarget: { borderWidth: 2, borderColor: theme.accent, borderRadius: 12 },
-  midRow: { flexDirection: 'row', gap: 24, justifyContent: 'center', marginVertical: 10 },
+  midRow: { flexDirection: 'row', gap: 24, justifyContent: 'center', marginTop: 22, marginBottom: 10 },
   pile: { alignItems: 'center' },
   pileEmpty: { width: 68, height: 98, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: theme.feltLight },
   pileLabel: { color: theme.inkDim, fontSize: 11, marginTop: 4 },

@@ -120,7 +120,7 @@ function renderFace(card: AnyCard | undefined, w: number, h: number, backTheme: 
   if (card.kind === 'num') {
     const { base, deep, highlight } = SUIT_PALETTE[card.color];
     const twoDigit = card.value >= 10;
-    const centerFontSize = w * (twoDigit ? 0.68 : 0.86);
+    const centerFontSize = w * (twoDigit ? 0.5 : 0.62);
     const cornerFontSize = w * (twoDigit ? 0.18 : 0.22);
     return (
       <View style={[styles.face, { backgroundColor: base }]}>
@@ -177,7 +177,7 @@ function renderFace(card: AnyCard | undefined, w: number, h: number, backTheme: 
               <Text style={[styles.cornerNum, { fontSize: w * 0.22 }]}>{dv}</Text>
               <Text style={{ color: '#ffd84d', fontSize: w * 0.15, fontWeight: '900', marginTop: 1 }}>★</Text>
             </View>
-            <Text style={[styles.centerNum, { fontSize: w * 0.56, textShadowRadius: Math.max(w * 0.04, 2) }]}>
+            <Text style={[styles.centerNum, { fontSize: w * 0.42, textShadowRadius: Math.max(w * 0.04, 2) }]}>
               {dv}
             </Text>
             <View style={[styles.cornerWrap, styles.cornerBR]}>
@@ -187,7 +187,7 @@ function renderFace(card: AnyCard | undefined, w: number, h: number, backTheme: 
           </>
         ) : (
           <>
-            <Text style={[styles.wildStar, { fontSize: w * 0.6 }]}>★</Text>
+            <Text style={[styles.wildStar, { fontSize: w * 0.45 }]}>★</Text>
             <Text style={[styles.wildLabel, { fontSize: w * 0.15 }]}>WILD</Text>
           </>
         )}
@@ -197,7 +197,7 @@ function renderFace(card: AnyCard | undefined, w: number, h: number, backTheme: 
 
   return (
     <LinearGradient colors={['#ffffff', '#d9d9d9']} style={styles.face}>
-      <Text style={[styles.skipGlyph, { fontSize: w * 0.6 }]}>⊘</Text>
+      <Text style={[styles.skipGlyph, { fontSize: w * 0.45 }]}>⊘</Text>
       <Text style={[styles.skipLabel, { fontSize: w * 0.15 }]}>SKIP</Text>
     </LinearGradient>
   );
@@ -218,13 +218,13 @@ function renderStandardFace(card: StdCard, w: number, _h: number) {
         <Text
           style={[
             styles.stdFaceLetter,
-            { color, fontSize: w * 0.62 },
+            { color, fontSize: w * 0.46 },
           ]}
         >
           {label}
         </Text>
       ) : (
-        <Text style={[styles.stdCenterGlyph, { color, fontSize: w * 0.62 }]}>{glyph}</Text>
+        <Text style={[styles.stdCenterGlyph, { color, fontSize: w * 0.46 }]}>{glyph}</Text>
       )}
       <View style={[styles.stdCornerWrap, styles.stdCornerBR]}>
         <Text style={[styles.stdCornerRank, { color, fontSize: w * 0.22 }]}>{label}</Text>
