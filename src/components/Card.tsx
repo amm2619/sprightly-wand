@@ -53,7 +53,7 @@ export function GameCard({ card, selected, dimmed, small, onPress, backTheme }: 
   const w = baseW * cardMult;
   const h = baseH * cardMult;
   const cornerW = baseW;
-  const centerMult = compact ? 0.74 : 1;
+  const centerMult = compact ? 0.55 : 1;
 
   const content = (
     <View
