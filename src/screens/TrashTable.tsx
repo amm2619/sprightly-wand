@@ -147,19 +147,12 @@ export default function TrashTable({ route, navigation }: Props) {
         </View>
 
         <View style={{ flex: 1 }}>
-        {/* Opponent offline banner */}
-        {opp && !opp.connected && (
-          <View style={s.offlineBanner}>
-            <Text style={s.offlineText}>{opp.nickname} is offline — game paused.</Text>
-          </View>
-        )}
 
         {/* Opponent */}
         <PlayerField
           orientation="top"
           name={opp?.nickname ?? '?'}
           wins={opponentUid ? room.seriesWins?.[opponentUid] ?? 0 : 0}
-          connected={opp?.connected !== false}
           meta={`Round to ${opponentUid ? hand?.roundSizes?.[opponentUid] ?? 10 : 10}`}
         >
           <SlotGrid
@@ -233,7 +226,6 @@ export default function TrashTable({ route, navigation }: Props) {
           orientation="bottom"
           name={me?.nickname ?? '?'}
           isMe
-          connected
           wins={myUid ? room.seriesWins?.[myUid] ?? 0 : 0}
           meta={`Round to ${myUid ? hand?.roundSizes?.[myUid] ?? 10 : 10}`}
         >
@@ -439,12 +431,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: theme.inkFaint,
   },
   quitText: { color: theme.inkDim, fontSize: 11, fontWeight: '700' },
-  offlineBanner: {
-    backgroundColor: '#3a1a1a',
-    paddingVertical: 6, paddingHorizontal: 12,
-    borderBottomWidth: 1, borderBottomColor: theme.danger,
-  },
-  offlineText: { color: '#ffb3b3', fontSize: 12, textAlign: 'center', fontWeight: '600' },
 
   grid: { gap: 4, alignItems: 'center' },
   gridRow: { flexDirection: 'row', gap: 4 },

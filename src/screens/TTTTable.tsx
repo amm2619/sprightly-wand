@@ -20,7 +20,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useApp } from '../state/store';
 import { db, ensureSignedIn } from '../net/firebase';
 import { registerPushForRoom } from '../net/notifications';
-import { markConnected, RoomDoc, subscribeRoom } from '../net/room';
+import { markConnected, reorderHand, RoomDoc, subscribeRoom } from '../net/room';
 import { Reactions } from '../components/Reactions';
 import { scaleStyles, useLayoutScale } from '../theme/responsive';
 import {
@@ -121,13 +121,20 @@ export default function TTTTable({ route, navigation }: Props) {
     return handOrder.map((id) => byId.get(id)).filter(Boolean) as StdCard[];
   }, [handOrder, myHand]);
 
+  // Set the displayed order AND persist it to the player's privateHands doc so
+  // it survives leaving and re-entering the room.
+  const applyOrder = (ids: string[]) => {
+    setHandOrder(ids);
+    reorderHand(roomCode, ids).catch(() => {});
+  };
+
   const sortByRank = () => {
     const sorted = [...orderedHand].sort((a, b) => a.rank - b.rank || suitOrder(a.suit) - suitOrder(b.suit));
-    setHandOrder(sorted.map((c) => c.id));
+    applyOrder(sorted.map((c) => c.id));
   };
   const sortBySuit = () => {
     const sorted = [...orderedHand].sort((a, b) => suitOrder(a.suit) - suitOrder(b.suit) || a.rank - b.rank);
-    setHandOrder(sorted.map((c) => c.id));
+    applyOrder(sorted.map((c) => c.id));
   };
 
   const me = myUid && room ? room.players[myUid] : null;
@@ -338,12 +345,6 @@ export default function TTTTable({ route, navigation }: Props) {
           </Pressable>
         </View>
 
-        {opp && !opp.connected && (
-          <View style={s.offlineBanner}>
-            <Text style={s.offlineText}>{opp.nickname} is offline — game paused.</Text>
-          </View>
-        )}
-
         <View style={{ flex: 1 }}>
         {/* Opponent row — replaced with inline picker while laying or extending */}
         {mode === 'lay' ? (
@@ -435,7 +436,6 @@ export default function TTTTable({ route, navigation }: Props) {
             name={opp?.nickname ?? '?'}
             wins={opponentUid ? room.seriesWins?.[opponentUid] ?? 0 : 0}
             score={opponentUid ? room.progress?.[opponentUid]?.totalScore : undefined}
-            connected={opp?.connected !== false}
             meta={opponentUid && hand ? `${hand.counts[opponentUid] ?? 0} cards` : undefined}
             bodyNoWrap
           >
@@ -537,7 +537,6 @@ export default function TTTTable({ route, navigation }: Props) {
             orientation="bottom"
             name={me?.nickname ?? 'You'}
             isMe
-            connected
             wins={myUid ? room.seriesWins?.[myUid] ?? 0 : 0}
             score={myUid ? room.progress?.[myUid]?.totalScore : undefined}
             meta={`${myHand.length} cards`}
@@ -596,7 +595,7 @@ export default function TTTTable({ route, navigation }: Props) {
             onTap={toggle}
             onReorder={(newVisibleOrder) => {
               const stagedList = Array.from(stagedIds);
-              setHandOrder([...newVisibleOrder, ...stagedList]);
+              applyOrder([...newVisibleOrder, ...stagedList]);
             }}
           />
         </View>
@@ -782,8 +781,6 @@ const styles = StyleSheet.create({
   topBarMeta: { color: theme.inkDim, fontSize: 10, letterSpacing: 1, fontWeight: '700', marginTop: 1 },
   quitBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: theme.inkFaint },
   quitText: { color: theme.inkDim, fontSize: 11, fontWeight: '700' },
-  offlineBanner: { backgroundColor: '#3a1a1a', paddingVertical: 6, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: theme.danger },
-  offlineText: { color: '#ffb3b3', fontSize: 12, textAlign: 'center', fontWeight: '600' },
   meldRow: { paddingHorizontal: 12, paddingBottom: 6, gap: 8 },
   meldsScroll: { paddingHorizontal: 8, paddingVertical: 6, gap: 8, alignItems: 'flex-start' },
   myMeldsCompact: { alignSelf: 'stretch', paddingHorizontal: 4 },

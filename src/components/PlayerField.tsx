@@ -7,7 +7,6 @@ type Props = {
   orientation: 'top' | 'bottom';
   name: string;
   isMe?: boolean;
-  connected?: boolean;
   wins?: number;
   score?: number;
   /** Absolutely-positioned pip over the avatar (e.g. Phase 10 phase badge). */
@@ -37,7 +36,7 @@ const RESERVED_NON_FIELD_PX = 400;
 const RESERVED_NON_FIELD_PX_COMPACT = 270;
 
 export function PlayerField({
-  orientation, name, isMe, connected, wins, score, badge, meta, children, bodyNoWrap,
+  orientation, name, isMe, wins, score, badge, meta, children, bodyNoWrap,
 }: Props) {
   const { height: screenH } = useWindowDimensions();
   const compact = useApp((s) => s.compactMode);
@@ -46,7 +45,6 @@ export function PlayerField({
   const maxFieldHeight = Math.max(minHeight, (screenH - reserved) / 2);
   const isTop = orientation === 'top';
   const initial = (name[0] ?? '?').toUpperCase();
-  const offline = connected === false;
 
   return (
     <View
@@ -60,17 +58,10 @@ export function PlayerField({
       <View style={styles.row}>
         <View style={styles.avatarCol}>
           <View style={styles.avatarWrap}>
-            <View
-              style={[
-                styles.avatar,
-                isMe && styles.avatarMe,
-                offline && styles.avatarOffline,
-              ]}
-            >
+            <View style={[styles.avatar, isMe && styles.avatarMe]}>
               <Text style={styles.avatarText}>{initial}</Text>
             </View>
             {badge ? <View style={styles.badgeSlot}>{badge}</View> : null}
-            {offline ? <View style={styles.offlineDot} /> : null}
           </View>
           <Text numberOfLines={1} style={styles.name}>
             {name}{wins && wins > 0 ? `  🏆${wins}` : ''}
@@ -125,19 +116,11 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: theme.feltDark,
   },
   avatarMe: { borderColor: theme.accent },
-  avatarOffline: { opacity: 0.5, borderColor: theme.danger },
   avatarText: { color: theme.ink, fontWeight: '800', fontSize: 18 },
   badgeSlot: {
     position: 'absolute',
     top: -4,
     right: -6,
-  },
-  offlineDot: {
-    position: 'absolute',
-    bottom: 2, left: 2,
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: theme.danger,
-    borderWidth: 2, borderColor: theme.felt,
   },
   name: {
     color: theme.inkDim,

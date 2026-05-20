@@ -292,6 +292,33 @@ export async function sendReaction(code: string, emoji: string): Promise<void> {
   await updateDoc(ref, { lastReaction: reaction });
 }
 
+/**
+ * Persist the player's manual hand order. Hand order is otherwise only kept in
+ * local screen state, so leaving and re-entering the room lost it — the cards
+ * came back in deal/draw order. We reorder the player's own `privateHands.cards`
+ * array to match `orderedIds`; any cards not listed (e.g. just drawn) keep their
+ * relative order at the end. Run in a transaction so a concurrent draw/discard
+ * can't clobber the array. Game rules never depend on hand order, so this is
+ * purely cosmetic and safe.
+ */
+export async function reorderHand(code: string, orderedIds: string[]): Promise<void> {
+  const uid = await ensureSignedIn();
+  const ref = doc(db, 'rooms', code, 'privateHands', uid);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const cards = ((snap.data().cards ?? []) as Array<{ id: string }>);
+    const byId = new Map(cards.map((c) => [c.id, c]));
+    const next: Array<{ id: string }> = [];
+    for (const id of orderedIds) {
+      const c = byId.get(id);
+      if (c) { next.push(c); byId.delete(id); }
+    }
+    for (const c of cards) if (byId.has(c.id)) next.push(c);
+    tx.update(ref, { cards: next });
+  });
+}
+
 export function subscribeRoom(
   code: string,
   onChange: (room: RoomDoc | null) => void,
