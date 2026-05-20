@@ -338,12 +338,6 @@ export default function TTTTable({ route, navigation }: Props) {
           </Pressable>
         </View>
 
-        {opp && !opp.connected && (
-          <View style={s.offlineBanner}>
-            <Text style={s.offlineText}>{opp.nickname} is offline — game paused.</Text>
-          </View>
-        )}
-
         <View style={{ flex: 1 }}>
         {/* Opponent row — replaced with inline picker while laying or extending */}
         {mode === 'lay' ? (
@@ -435,7 +429,6 @@ export default function TTTTable({ route, navigation }: Props) {
             name={opp?.nickname ?? '?'}
             wins={opponentUid ? room.seriesWins?.[opponentUid] ?? 0 : 0}
             score={opponentUid ? room.progress?.[opponentUid]?.totalScore : undefined}
-            connected={opp?.connected !== false}
             meta={opponentUid && hand ? `${hand.counts[opponentUid] ?? 0} cards` : undefined}
             bodyNoWrap
           >
@@ -537,7 +530,6 @@ export default function TTTTable({ route, navigation }: Props) {
             orientation="bottom"
             name={me?.nickname ?? 'You'}
             isMe
-            connected
             wins={myUid ? room.seriesWins?.[myUid] ?? 0 : 0}
             score={myUid ? room.progress?.[myUid]?.totalScore : undefined}
             meta={`${myHand.length} cards`}
@@ -782,8 +774,6 @@ const styles = StyleSheet.create({
   topBarMeta: { color: theme.inkDim, fontSize: 10, letterSpacing: 1, fontWeight: '700', marginTop: 1 },
   quitBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: theme.inkFaint },
   quitText: { color: theme.inkDim, fontSize: 11, fontWeight: '700' },
-  offlineBanner: { backgroundColor: '#3a1a1a', paddingVertical: 6, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: theme.danger },
-  offlineText: { color: '#ffb3b3', fontSize: 12, textAlign: 'center', fontWeight: '600' },
   meldRow: { paddingHorizontal: 12, paddingBottom: 6, gap: 8 },
   meldsScroll: { paddingHorizontal: 8, paddingVertical: 6, gap: 8, alignItems: 'flex-start' },
   myMeldsCompact: { alignSelf: 'stretch', paddingHorizontal: 4 },

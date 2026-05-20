@@ -543,15 +543,6 @@ export default function Table({ route, navigation }: Props) {
         </Pressable>
       </View>
 
-      {/* Opponent offline banner */}
-      {opp && !opp.connected && (
-        <View style={s.offlineBanner}>
-          <Text style={s.offlineText}>
-            {opp.nickname} is offline — game paused until they return.
-          </Text>
-        </View>
-      )}
-
       {/* Opponent header */}
       <View>
         <Pressable onPress={() => setShowOppCards((v) => !v)} style={styles.oppToggle}>
@@ -562,7 +553,6 @@ export default function Table({ route, navigation }: Props) {
           name={opp?.nickname ?? '?'}
           wins={opponentUid ? room.seriesWins?.[opponentUid] : 0}
           score={oppProgress?.totalScore}
-          connected={opp?.connected !== false}
           badge={<PhaseBadge num={oppPhaseNum} />}
         >
           {showOppCards && (oppLaid.length > 0
@@ -651,7 +641,6 @@ export default function Table({ route, navigation }: Props) {
         wins={myUid ? room.seriesWins?.[myUid] : 0}
         score={myProgress?.totalScore}
         isMe
-        connected
         badge={<PhaseBadge num={myPhaseNum} />}
       >
         {alreadyLaid
@@ -997,19 +986,6 @@ const styles = StyleSheet.create({
 
   slotsRow: { paddingHorizontal: 4, alignItems: 'center' },
 
-  offlineBanner: {
-    backgroundColor: '#3a1a1a',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.danger,
-  },
-  offlineText: {
-    color: '#ffb3b3',
-    fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
   middle: {
     flex: 1, justifyContent: 'center',
   },
