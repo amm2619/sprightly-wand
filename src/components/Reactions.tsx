@@ -12,7 +12,7 @@ import { sendReaction, type Reaction } from '../net/room';
 import { theme } from '../theme/colors';
 
 /** The emoji a player can tap to fling up the screen. */
-const EMOJIS = ['❤️', '😂', '🔥', '👏', '😮', '😭'];
+const EMOJIS = ['👏', '😡', '😭', '🖕'];
 
 /** How far up the screen a floating emoji travels, as a fraction of height. */
 const RISE_FRACTION = 0.62;
