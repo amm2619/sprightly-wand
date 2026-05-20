@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -31,6 +31,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
 export default function Welcome({ navigation }: Props) {
   const { nickname, setNickname, lastRoomCode, compactMode, setCompactMode } = useApp();
+  const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(nickname);
 
   useEffect(() => setDraft(nickname), [nickname]);
@@ -44,9 +45,9 @@ export default function Welcome({ navigation }: Props) {
   return (
     <FeltBackground>
       <BackgroundCardFan />
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
         <KeyboardAvoidingView
-          style={styles.root}
+          style={[styles.root, { paddingBottom: insets.bottom + 32 }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View style={styles.header}>
@@ -213,7 +214,7 @@ const fanStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 28, justifyContent: 'space-between', paddingBottom: 24 },
+  root: { flex: 1, paddingHorizontal: 28, justifyContent: 'space-between' },
   header: { marginTop: 52, alignItems: 'center' },
   mark: {
     color: theme.accent,
