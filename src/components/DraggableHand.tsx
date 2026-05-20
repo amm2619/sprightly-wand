@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 
 import { GameCard, CARD_W, CARD_H } from './Card';
 import { useDragCtx, type AnyDragCard } from './DragContext';
+import { theme } from '../theme/colors';
 
 const CARD_MIN_STEP = 18;
 const CARD_MAX_STEP = 40;
@@ -51,6 +52,13 @@ export function DraggableHand<C extends AnyDragCard>({
   const handTop = useSharedValue(0);
   const handW = useSharedValue(handWidth);
   const handH = useSharedValue(CARD_H + FAN_ARC_DEPTH);
+  // Live drop indicator: the slot the dragged card would land in (-1 = hidden).
+  const insertAt = useSharedValue(-1);
+
+  const lineStyle = useAnimatedStyle(() => ({
+    opacity: insertAt.value < 0 ? 0 : 1,
+    transform: [{ translateX: insertAt.value * step + HAND_H_PADDING - 2 }],
+  }));
 
   useEffect(() => { handW.value = handWidth; }, [handWidth, handW]);
 
@@ -105,11 +113,13 @@ export function DraggableHand<C extends AnyDragCard>({
             handTop={handTop}
             handWidth={handW}
             handHeight={handH}
+            insertAt={insertAt}
             onTap={() => onTap(c.id)}
             onReorder={(newIdx) => doReorder(i, newIdx)}
           />
         );
       })}
+      <Animated.View pointerEvents="none" style={[styles.insertLine, lineStyle]} />
     </View>
   );
 }
@@ -127,6 +137,7 @@ function HandCard({
   handTop,
   handWidth,
   handHeight,
+  insertAt,
   onTap,
   onReorder,
 }: {
@@ -142,6 +153,7 @@ function HandCard({
   handTop: SharedValue<number>;
   handWidth: SharedValue<number>;
   handHeight: SharedValue<number>;
+  insertAt: SharedValue<number>;
   onTap: () => void;
   onReorder: (newIndex: number) => void;
 }) {
@@ -249,8 +261,22 @@ function HandCard({
       ty.value = e.translationY;
       dragX.value = e.absoluteX;
       dragY.value = e.absoluteY;
+      // Live: which gap would this card drop into? Mirrors handleRelease.
+      const inHandY =
+        e.absoluteY >= handTop.value - 20 &&
+        e.absoluteY <= handTop.value + handHeight.value + 20;
+      if (inHandY) {
+        const relX = e.absoluteX - (handLeft.value + HAND_H_PADDING + CARD_W / 2);
+        let target = Math.round(relX / step);
+        if (target < 0) target = 0;
+        if (target > totalCards - 1) target = totalCards - 1;
+        insertAt.value = target === index ? -1 : target;
+      } else {
+        insertAt.value = -1;
+      }
     })
     .onEnd((e) => {
+      insertAt.value = -1;
       runOnJS(handleRelease)(
         e.absoluteX,
         e.absoluteY,
@@ -266,6 +292,9 @@ function HandCard({
       rot.value = withTiming(rotation, { duration: 240, easing: Easing.out(Easing.cubic) });
       yArc.value = withTiming(yFan, { duration: 240, easing: Easing.out(Easing.cubic) });
       runOnJS(endDrag)();
+    })
+    .onFinalize(() => {
+      insertAt.value = -1;
     });
 
   const tap = Gesture.Tap()
@@ -325,5 +354,20 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 40,
     backgroundColor: '#000',
+  },
+  insertLine: {
+    position: 'absolute',
+    top: HAND_H_PADDING - 5,
+    left: 0,
+    width: 4,
+    height: CARD_H + 10,
+    borderRadius: 2,
+    backgroundColor: theme.accent,
+    zIndex: 150,
+    shadowColor: theme.accent,
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
 });
