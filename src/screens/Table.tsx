@@ -49,7 +49,7 @@ import {
 } from '../net/actions';
 import { db, ensureSignedIn } from '../net/firebase';
 import { registerPushForRoom } from '../net/notifications';
-import { markConnected, RoomDoc, subscribeRoom } from '../net/room';
+import { markConnected, reorderHand, RoomDoc, subscribeRoom } from '../net/room';
 import { Reactions } from '../components/Reactions';
 import { scaleStyles, useLayoutScale } from '../theme/responsive';
 import { theme } from '../theme/colors';
@@ -208,6 +208,13 @@ export default function Table({ route, navigation }: Props) {
     return handOrder.map((id) => byId.get(id)).filter(Boolean) as CardT[];
   }, [handOrder, myHand]);
 
+  // Set the displayed order AND persist it to the player's privateHands doc so
+  // it survives leaving and re-entering the room.
+  const applyOrder = (ids: string[]) => {
+    setHandOrder(ids);
+    reorderHand(roomCode, ids).catch(() => {});
+  };
+
   const sortByValue = () => {
     const rank = (c: CardT): number => {
       if (c.kind === 'num') return c.value * 10 + colorOrder(c.color);
@@ -215,7 +222,7 @@ export default function Table({ route, navigation }: Props) {
       return 2000; // wild last
     };
     const sorted = [...orderedHand].sort((a, b) => rank(a) - rank(b));
-    setHandOrder(sorted.map((c) => c.id));
+    applyOrder(sorted.map((c) => c.id));
   };
 
   const sortByColor = () => {
@@ -231,7 +238,7 @@ export default function Table({ route, navigation }: Props) {
       if (a.kind === 'wild' && b.kind === 'skip') return 1;
       return 0;
     });
-    setHandOrder(sorted.map((c) => c.id));
+    applyOrder(sorted.map((c) => c.id));
   };
 
   const me = myUid && room ? room.players[myUid] : null;
@@ -705,7 +712,7 @@ export default function Table({ route, navigation }: Props) {
           onTap={toggleSelect}
           onReorder={(newVisibleOrder) => {
             const stagedList = Array.from(stagedIds);
-            setHandOrder([...newVisibleOrder, ...stagedList]);
+            applyOrder([...newVisibleOrder, ...stagedList]);
           }}
         />
       </View>
