@@ -6,6 +6,7 @@ import {
   serverTimestamp,
   Timestamp,
   Unsubscribe,
+  updateDoc,
 } from 'firebase/firestore';
 import { db, ensureSignedIn } from './firebase';
 
@@ -28,7 +29,17 @@ export type RoomDoc = {
   status: RoomStatus;
   gameType?: GameType; // missing on legacy rooms = phase10
   phase10Variant?: string; // e.g. 'classic' | 'tough-10'; missing = 'classic'
+  // Ephemeral "tap reaction" (IG-Live-style floating emoji). Each tap overwrites
+  // this with a fresh `id`; both clients animate one emoji per id they observe.
+  lastReaction?: Reaction;
   // Optional recovery / hand / progress fields also live here (see readers).
+};
+
+export type Reaction = {
+  id: string;
+  emoji: string;
+  by: string;
+  at: number;
 };
 
 // 4-digit numeric code — easier to type / remember than alphanumeric.
@@ -261,6 +272,24 @@ export async function markConnected(code: string, connected: boolean): Promise<v
       [`players.${uid}.connected`]: connected,
     });
   });
+}
+
+/**
+ * Fire-and-forget "tap reaction". Overwrites `lastReaction` on the room doc;
+ * the realtime subscription on both clients then floats the emoji up-screen.
+ * A plain updateDoc (no transaction) is fine — it's a single ephemeral field
+ * and a dropped/raced write just means one missed emoji.
+ */
+export async function sendReaction(code: string, emoji: string): Promise<void> {
+  const uid = await ensureSignedIn();
+  const ref = doc(db, 'rooms', code);
+  const reaction: Reaction = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    emoji,
+    by: uid,
+    at: Date.now(),
+  };
+  await updateDoc(ref, { lastReaction: reaction });
 }
 
 export function subscribeRoom(

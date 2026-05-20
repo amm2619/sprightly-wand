@@ -50,6 +50,7 @@ import {
 import { db, ensureSignedIn } from '../net/firebase';
 import { registerPushForRoom } from '../net/notifications';
 import { markConnected, RoomDoc, subscribeRoom } from '../net/room';
+import { Reactions } from '../components/Reactions';
 import { scaleStyles, useLayoutScale } from '../theme/responsive';
 import { theme } from '../theme/colors';
 import TrashTable from './TrashTable';
@@ -796,6 +797,8 @@ export default function Table({ route, navigation }: Props) {
           onCancel={() => setWildPrompt(null)}
         />
       )}
+
+      <Reactions roomCode={roomCode} myUid={myUid} lastReaction={room.lastReaction} />
     </SafeAreaView>
     </FeltBackground>
   );

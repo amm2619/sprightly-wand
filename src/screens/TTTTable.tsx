@@ -21,6 +21,7 @@ import { useApp } from '../state/store';
 import { db, ensureSignedIn } from '../net/firebase';
 import { registerPushForRoom } from '../net/notifications';
 import { markConnected, RoomDoc, subscribeRoom } from '../net/room';
+import { Reactions } from '../components/Reactions';
 import { scaleStyles, useLayoutScale } from '../theme/responsive';
 import {
   discardTTT,
@@ -664,6 +665,8 @@ export default function TTTTable({ route, navigation }: Props) {
             busy={busy}
           />
         )}
+
+        <Reactions roomCode={roomCode} myUid={myUid} lastReaction={room.lastReaction} />
       </SafeAreaView>
     </FeltBackground>
   );
