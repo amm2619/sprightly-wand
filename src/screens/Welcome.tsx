@@ -18,12 +18,15 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 import { Button } from '../components/Button';
 import { GameCard } from '../components/Card';
 import { FeltBackground } from '../components/FeltBackground';
 import { WandLogo } from '../components/WandLogo';
 import type { Card as Phase10Card } from '../games/phase10/types';
 import { RootStackParamList } from '../navigation/types';
+import { auth, signOutOfAccount } from '../net/firebase';
+import { isGoogleSignInConfigured, useGoogleSignIn } from '../net/googleAuth';
 import { useApp } from '../state/store';
 import { theme } from '../theme/colors';
 
@@ -33,6 +36,14 @@ export default function Welcome({ navigation }: Props) {
   const { nickname, setNickname, lastRoomCode, compactMode, setCompactMode } = useApp();
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(nickname);
+  const [user, setUser] = useState<User | null>(auth.currentUser);
+  const google = useGoogleSignIn();
+
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
+
+  const signedInLabel = user && !user.isAnonymous
+    ? (user.displayName || user.email || 'Signed in')
+    : null;
 
   useEffect(() => setDraft(nickname), [nickname]);
 
@@ -115,6 +126,26 @@ export default function Welcome({ navigation }: Props) {
                 Resume / reset with custom state →
               </Text>
             </Pressable>
+
+            {signedInLabel ? (
+              <Pressable
+                style={({ pressed }) => [styles.rejoin, pressed && { opacity: 0.7 }]}
+                onPress={() => signOutOfAccount().catch(() => {})}
+              >
+                <Text style={styles.rejoinText}>
+                  Signed in as <Text style={{ color: theme.accent }}>{signedInLabel}</Text> · sign out
+                </Text>
+              </Pressable>
+            ) : isGoogleSignInConfigured() ? (
+              <Button
+                label={google.busy ? 'Signing in…' : 'Sign in with Google'}
+                variant="ghost"
+                size="md"
+                disabled={!google.ready || google.busy}
+                onPress={google.signIn}
+              />
+            ) : null}
+            {google.error ? <Text style={styles.authError}>{google.error}</Text> : null}
 
             <Pressable
               style={({ pressed }) => [styles.compactRow, pressed && { opacity: 0.7 }]}
@@ -262,6 +293,7 @@ const styles = StyleSheet.create({
   actions: { gap: 14 },
   rejoin: { paddingVertical: 12, alignItems: 'center' },
   rejoinText: { color: theme.inkDim, fontSize: 14, fontWeight: '600' },
+  authError: { color: theme.danger, fontSize: 12, textAlign: 'center', marginTop: 4 },
   compactRow: {
     flexDirection: 'row',
     alignItems: 'center',
