@@ -19,6 +19,18 @@ import {
 import { Rank } from '../games/standard/types';
 import { db, ensureSignedIn } from './firebase';
 
+/**
+ * Game actions are only valid while the room is actively playing. Without this
+ * gate, once status flips to handOver (e.g. the last-chance discard ends the
+ * hand) the turn fields stay frozen and an offline opponent's app would never
+ * progress past handOver — the active player could keep laying / extending /
+ * discarding on the stale "playing"-shaped state until the other side opens
+ * the app. The gate stops that.
+ */
+function assertPlaying(status: string | undefined): void {
+  if (status !== 'playing') throw new Error('Hand has ended');
+}
+
 export type TTTHand = {
   handNumber: number;       // 1..11
   wildRank: number;
@@ -125,6 +137,7 @@ export async function drawFromDeckTTT(code: string): Promise<void> {
     const hSnap = await tx.get(privateHandRef(code, uid));
     if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as TTTHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (hand.hasDrawn) throw new Error('Already drew this turn');
@@ -158,6 +171,7 @@ export async function drawFromDiscardTTT(code: string): Promise<void> {
     const hSnap = await tx.get(privateHandRef(code, uid));
     if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as TTTHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (hand.hasDrawn) throw new Error('Already drew this turn');
@@ -187,6 +201,7 @@ export async function layMelds(
     const hSnap = await tx.get(privateHandRef(code, uid));
     if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as TTTHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (!hand.hasDrawn) throw new Error('Draw first');
@@ -243,6 +258,7 @@ export async function extendOwnMeld(
     const hSnap = await tx.get(privateHandRef(code, uid));
     if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as TTTHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (!hand.hasDrawn) throw new Error('Draw first');
@@ -283,6 +299,7 @@ export async function forceEndStuckTurnTTT(code: string): Promise<void> {
     const hSnap = await tx.get(privateHandRef(code, uid));
     if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as TTTHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (!hand.hasDrawn) throw new Error('Draw first');
@@ -316,6 +333,7 @@ export async function discardTTT(code: string, cardId: string): Promise<void> {
     const hSnap = await tx.get(privateHandRef(code, uid));
     if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as TTTHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (!hand.hasDrawn) throw new Error('Draw first');

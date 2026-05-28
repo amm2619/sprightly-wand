@@ -10,6 +10,14 @@ import {
 import { StdCard } from '../games/standard/types';
 import { db, ensureSignedIn } from './firebase';
 
+/**
+ * Game actions are only valid while the room is actively playing — see the
+ * matching helper in tttActions.ts for the rationale.
+ */
+function assertPlaying(status: string | undefined): void {
+  if (status !== 'playing') throw new Error('Round has ended');
+}
+
 export type TrashHand = {
   roundNumber: number;
   roundSizes: Record<string, number>;   // current slot count per player
@@ -122,6 +130,7 @@ export async function drawTrashDeck(code: string): Promise<void> {
     const rSnap = await tx.get(roomRef(code));
     if (!rSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as TrashHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (hand.held) throw new Error('You already have a card in hand');
@@ -151,6 +160,7 @@ export async function drawTrashDiscard(code: string): Promise<void> {
     const rSnap = await tx.get(roomRef(code));
     if (!rSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as TrashHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (hand.held) throw new Error('You already have a card in hand');
@@ -181,6 +191,7 @@ export async function placeTrashHeld(code: string, slotIdx: number): Promise<voi
     const pSnap = await tx.get(privateSlotsRef(code, uid));
     if (!rSnap.exists() || !pSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as TrashHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (!hand.held) throw new Error('Draw a card first');
@@ -239,6 +250,7 @@ export async function discardTrashHeld(code: string): Promise<void> {
     const rSnap = await tx.get(roomRef(code));
     if (!rSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as TrashHand;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (!hand.held) throw new Error('No card to discard');

@@ -15,6 +15,14 @@ import {
 import { Card, GroupKind, LaidGroup } from '../games/phase10/types';
 import { db, ensureSignedIn } from './firebase';
 
+/**
+ * Game actions are only valid while the room is actively playing — see the
+ * matching helper in tttActions.ts for the rationale.
+ */
+function assertPlaying(status: string | undefined): void {
+  if (status !== 'playing') throw new Error('Hand has ended');
+}
+
 export type HandState = {
   handNumber: number;
   deck: Card[];
@@ -129,6 +137,7 @@ export async function drawFromDeck(code: string): Promise<void> {
     const hSnap = await tx.get(privateHandRef(code, uid));
     if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as HandState;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (hand.hasDrawn) throw new Error('Already drew this turn');
@@ -160,6 +169,7 @@ export async function drawFromDiscard(code: string): Promise<void> {
     const hSnap = await tx.get(privateHandRef(code, uid));
     if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as HandState;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (hand.hasDrawn) throw new Error('Already drew this turn');
@@ -188,6 +198,7 @@ export async function discardCard(code: string, cardId: string): Promise<void> {
     const hSnap = await tx.get(privateHandRef(code, uid));
     if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as HandState;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (!hand.hasDrawn) throw new Error('Must draw before discarding');
@@ -255,6 +266,7 @@ export async function layPhase(
     const hSnap = await tx.get(privateHandRef(code, uid));
     if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as HandState;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (!hand.hasDrawn) throw new Error('Draw before laying');
@@ -328,6 +340,7 @@ export async function hitGroupMulti(
     const hSnap = await tx.get(privateHandRef(code, uid));
     if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
     const room = rSnap.data();
+    assertPlaying(room.status);
     const hand = room.hand as HandState;
     if (hand.turn !== uid) throw new Error('Not your turn');
     if (!hand.hasDrawn) throw new Error('Draw before hitting');
