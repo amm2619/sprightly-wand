@@ -43,6 +43,10 @@ export type TTTHand = {
   wentOut: string | null;
   // See HandState.topDiscardIsFresh — same meaning.
   topDiscardIsFresh: boolean;
+  // Card ids the current player has laid (or extended onto) THIS turn, per uid.
+  // Enables "undo lay" before the discard ends the turn — only cards from this
+  // entry are reclaimable, so previous turns' lays are untouched.
+  thisTurnLaid: Record<string, string[]>;
 };
 
 export type TTTProgress = { totalScore: number };
@@ -116,6 +120,7 @@ export async function startTTTHand(code: string): Promise<void> {
       counts: { [seat0]: hands[0].length, [seat1]: hands[1].length },
       wentOut: null,
       topDiscardIsFresh: false,
+      thisTurnLaid: { [seat0]: [], [seat1]: [] },
     };
 
     tx.update(roomRef(code), {
@@ -237,9 +242,12 @@ export async function layMelds(
     const remaining = myCards.filter((c) => !usedIds.has(c.id));
     if (remaining.length === 0) throw new Error('Keep at least one card — you must discard to end your turn');
 
+    const turnLaid = [...(hand.thisTurnLaid?.[uid] ?? []), ...Array.from(usedIds)];
+
     tx.update(roomRef(code), {
       [`hand.laid.${uid}`]: allLaid,
       [`hand.counts.${uid}`]: remaining.length,
+      [`hand.thisTurnLaid.${uid}`]: turnLaid,
       lastAction: { type: 'layMelds', by: uid, at: serverTimestamp() },
     });
     tx.set(privateHandRef(code, uid), { cards: remaining });
@@ -278,12 +286,61 @@ export async function extendOwnMeld(
     const remaining = myCards.filter((c) => c.id !== cardId);
     if (remaining.length === 0) throw new Error('Keep at least one card — you must discard to end your turn');
 
+    const turnLaid = [...(hand.thisTurnLaid?.[uid] ?? []), cardId];
+
     tx.update(roomRef(code), {
       [`hand.laid.${uid}`]: newGroups,
       [`hand.counts.${uid}`]: remaining.length,
+      [`hand.thisTurnLaid.${uid}`]: turnLaid,
       lastAction: { type: 'extendMeld', by: uid, at: serverTimestamp() },
     });
     tx.set(privateHandRef(code, uid), { cards: remaining });
+  });
+}
+
+/**
+ * Take back every card the player laid (or extended onto) on this turn so they
+ * can re-arrange before discarding. Only `thisTurnLaid` cards come back —
+ * groups laid on previous turns are untouched. A group composed entirely of
+ * this-turn cards is dropped; one extended this turn keeps its prior cards.
+ */
+export async function unlayThisTurnTTT(code: string): Promise<void> {
+  const uid = await ensureSignedIn();
+  await runTransaction(db, async (tx) => {
+    const rSnap = await tx.get(roomRef(code));
+    const hSnap = await tx.get(privateHandRef(code, uid));
+    if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
+    const room = rSnap.data();
+    assertPlaying(room.status);
+    const hand = room.hand as TTTHand;
+    if (hand.turn !== uid) throw new Error('Not your turn');
+    if (!hand.hasDrawn) throw new Error('Draw first');
+
+    const turnIds = new Set(hand.thisTurnLaid?.[uid] ?? []);
+    if (turnIds.size === 0) throw new Error('Nothing to undo');
+
+    const myLaid = hand.laid[uid] ?? [];
+    const reclaimed: StdCard[] = [];
+    const newGroups: LaidGroup[] = [];
+    for (const g of myLaid) {
+      const kept: StdCard[] = [];
+      for (const c of g.cards) {
+        if (turnIds.has(c.id)) reclaimed.push(c);
+        else kept.push(c);
+      }
+      if (kept.length > 0) newGroups.push({ kind: g.kind, cards: kept });
+    }
+
+    const myCards = hSnap.data().cards as StdCard[];
+    const newHand = [...myCards, ...reclaimed];
+
+    tx.update(roomRef(code), {
+      [`hand.laid.${uid}`]: newGroups,
+      [`hand.counts.${uid}`]: newHand.length,
+      [`hand.thisTurnLaid.${uid}`]: [],
+      lastAction: { type: 'unlayMelds', by: uid, at: serverTimestamp() },
+    });
+    tx.set(privateHandRef(code, uid), { cards: newHand });
   });
 }
 
@@ -351,6 +408,7 @@ export async function discardTTT(code: string, cardId: string): Promise<void> {
         'hand.discard': newDiscard,
         'hand.topDiscardIsFresh': true,
         [`hand.counts.${uid}`]: newHand.length,
+        [`hand.thisTurnLaid.${uid}`]: [],
         status: 'handOver',
         lastAction: { type: 'tttLastChanceDone', by: uid, at: serverTimestamp() },
       });
@@ -367,6 +425,7 @@ export async function discardTTT(code: string, cardId: string): Promise<void> {
         'hand.discard': newDiscard,
         'hand.topDiscardIsFresh': true,
         [`hand.counts.${uid}`]: 0,
+        [`hand.thisTurnLaid.${uid}`]: [],
         'hand.wentOut': uid,
         'hand.turn': opp,
         'hand.hasDrawn': false,
@@ -382,6 +441,7 @@ export async function discardTTT(code: string, cardId: string): Promise<void> {
       'hand.hasDrawn': false,
       'hand.turn': opp,
       [`hand.counts.${uid}`]: newHand.length,
+      [`hand.thisTurnLaid.${uid}`]: [],
       lastAction: { type: 'tttDiscard', by: uid, at: serverTimestamp() },
     });
     tx.set(privateHandRef(code, uid), { cards: newHand });

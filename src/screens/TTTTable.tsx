@@ -37,6 +37,7 @@ import {
   TTTHand,
   TTTHandResult,
   TTTProgress,
+  unlayThisTurnTTT,
 } from '../net/tttActions';
 import { theme } from '../theme/colors';
 
@@ -583,6 +584,14 @@ export default function TTTTable({ route, navigation }: Props) {
               onPress={sortBySuit}
               disabled={mode !== 'normal' && mode !== 'lay'}
             />
+            {mode === 'normal' && myUid && (hand?.thisTurnLaid?.[myUid]?.length ?? 0) > 0 && (
+              <IconToggle
+                icon="↶"
+                label="Undo lay"
+                onPress={() => doAction(() => unlayThisTurnTTT(roomCode))}
+                disabled={!isMyTurn || !hand?.hasDrawn || busy}
+              />
+            )}
             {selected.size > 0 && (
               <Pressable onPress={() => setSelected(new Set())} style={s.selectionPill}>
                 <Text style={s.selectionPillText}>{selected.size} selected · tap to clear</Text>

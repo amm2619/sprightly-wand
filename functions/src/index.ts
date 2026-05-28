@@ -16,7 +16,9 @@ type RoomPlayer = {
 type RoomDoc = {
   players?: Record<string, RoomPlayer>;
   gameType?: string;
-  hand?: { turn?: string };
+  status?: string;
+  hand?: { turn?: string; wentOut?: string | null };
+  lastAction?: { by?: string; type?: string };
 };
 
 const gameLabel = (gameType?: string): string => {
@@ -91,5 +93,76 @@ export const onTurnChange = onDocumentUpdated('rooms/{code}', async (event) => {
     log('turn push sent', { code, to: newTurn, tickets });
   } catch (err) {
     console.error(`[onTurnChange] turn push FAILED`, { code, to: newTurn, err: String(err) });
+  }
+});
+
+const endLog = (msg: string, extra?: Record<string, unknown>) =>
+  console.log(`[onHandEnd] ${msg}${extra ? ' ' + JSON.stringify(extra) : ''}`);
+
+/**
+ * Push a "hand over" notification to the player who DIDN'T trigger the end —
+ * i.e., the one most likely to be backgrounded and unaware. Fires when status
+ * transitions to `handOver` or `gameOver`. The non-actor is identified via
+ * `lastAction.by`. (For 3-to-13 the going-out player flips `wentOut` while
+ * status stays `playing`; the opponent's "your turn" alert is already covered
+ * by onTurnChange, so we only ping on the actual end transition here.)
+ */
+export const onHandEnd = onDocumentUpdated('rooms/{code}', async (event) => {
+  const code = event.params.code;
+  const before = event.data?.before.data() as RoomDoc | undefined;
+  const after = event.data?.after.data() as RoomDoc | undefined;
+  if (!before || !after) return;
+
+  const oldStatus = before.status;
+  const newStatus = after.status;
+  const justEnded =
+    newStatus !== oldStatus &&
+    (newStatus === 'handOver' || newStatus === 'gameOver');
+  if (!justEnded) {
+    return;
+  }
+
+  const players = after.players ?? {};
+  const actor = after.lastAction?.by;
+  const recipients = Object.keys(players).filter((u) => u !== actor);
+  if (recipients.length === 0) {
+    endLog('skip: no recipients', { code, actor });
+    return;
+  }
+
+  const wentOut = after.hand?.wentOut;
+  const goneOutNick = wentOut && players[wentOut]?.nickname
+    ? players[wentOut]!.nickname
+    : 'Someone';
+  const title = newStatus === 'gameOver' ? 'Game over' : 'Hand over';
+  const body = `${goneOutNick} went out · ${gameLabel(after.gameType)} · Room ${code}`;
+
+  const messages: ExpoPushMessage[] = [];
+  for (const uid of recipients) {
+    const token = players[uid]?.pushToken;
+    if (!token) {
+      endLog('skip recipient: no token', { code, uid });
+      continue;
+    }
+    if (!Expo.isExpoPushToken(token)) {
+      endLog('skip recipient: invalid token', { code, uid });
+      continue;
+    }
+    messages.push({
+      to: token,
+      sound: 'default',
+      title,
+      body,
+      data: { roomCode: code, gameType: after.gameType, kind: 'handEnd' },
+      priority: 'high',
+    });
+  }
+  if (messages.length === 0) return;
+
+  try {
+    const tickets = await expo.sendPushNotificationsAsync(messages);
+    endLog('hand-end push sent', { code, recipients, tickets });
+  } catch (err) {
+    console.error('[onHandEnd] hand-end push FAILED', { code, err: String(err) });
   }
 });
