@@ -39,9 +39,8 @@
       },
       "google": {
         "_comment": "OAuth 2.0 client IDs from Google Cloud Console. Required for Google sign-in. webClientId is also the audience Firebase verifies the ID token against.",
-        "webClientId": "",
-        "iosClientId": "",
-        "androidClientId": ""
+        "webClientId": "647438884542-pcne160pbmt57kdq2barpgv2vit6nvcs.apps.googleusercontent.com",
+        "androidClientId": "647438884542-hqjhm04t8d9dehcnpims8r8ftnej184h.apps.googleusercontent.com"
       }
     }
   }
