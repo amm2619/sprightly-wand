@@ -36,10 +36,12 @@ export function isGoogleSignInConfigured(): boolean {
  */
 export function useGoogleSignIn() {
   const cfg = readGoogleConfig();
+  // Only webClientId is passed — expo-auth-session uses a browser-based OAuth
+  // flow that requires a web-type client. The androidClientId is a native Android
+  // client that doesn't support custom URI scheme redirects and causes Error 400.
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: cfg.webClientId,
     iosClientId: cfg.iosClientId,
-    androidClientId: cfg.androidClientId,
   });
 
   const [busy, setBusy] = useState(false);
