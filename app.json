@@ -3,7 +3,7 @@
     "name": "Sprightly Wand",
     "slug": "sprightly-wand",
     "scheme": "sprightlywand",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -33,6 +33,15 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#0b3d2e"
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "21012431-b1b2-49dd-9646-3563e040afce"
