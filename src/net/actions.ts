@@ -122,6 +122,7 @@ export async function startGame(code: string): Promise<void> {
       hand,
       progress,
       handResult: null,
+      nextRoundReady: false,
       lastAction: { type: 'start', by: uid, at: serverTimestamp() },
     });
     tx.set(privateHandRef(code, seat0), { cards: hands[0] });

@@ -52,7 +52,7 @@ import {
 } from '../net/actions';
 import { db, ensureSignedIn } from '../net/firebase';
 import { registerPushForRoom } from '../net/notifications';
-import { markConnected, reorderHand, RoomDoc, subscribeRoom } from '../net/room';
+import { markConnected, reorderHand, requestNextRound, RoomDoc, subscribeRoom } from '../net/room';
 import { GameSettingsModal } from '../components/GameSettingsModal';
 import { TakeBackButton } from '../components/TakeBackButton';
 import { Reactions } from '../components/Reactions';
@@ -274,6 +274,9 @@ export default function Table({ route, navigation }: Props) {
     if (room.gameType && room.gameType !== 'phase10') return;
     if (room.status === 'waiting' && Object.keys(room.players).length === 2) {
       startGame(roomCode).catch((e) => setError(e.message));
+    }
+    if (room.status === 'handOver' && room.nextRoundReady && room.handResult) {
+      startNextHand(roomCode).catch((e) => setError(e.message));
     }
   }, [room, myUid, roomCode]);
 
@@ -838,7 +841,7 @@ export default function Table({ route, navigation }: Props) {
         <HandOverModal
           room={room}
           myUid={myUid}
-          onNext={() => doAction(() => startNextHand(roomCode))}
+          onNext={() => doAction(() => requestNextRound(roomCode))}
           busy={busy}
         />
       )}

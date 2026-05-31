@@ -18,7 +18,7 @@ import { StdCard } from '../games/standard/types';
 import { RootStackParamList } from '../navigation/types';
 import { ensureSignedIn } from '../net/firebase';
 import { registerPushForRoom } from '../net/notifications';
-import { markConnected, RoomDoc, subscribeRoom } from '../net/room';
+import { markConnected, requestNextRound, RoomDoc, subscribeRoom } from '../net/room';
 import { Reactions } from '../components/Reactions';
 import { scaleStyles, useLayoutScale } from '../theme/responsive';
 import {
@@ -97,11 +97,14 @@ export default function TrashTable({ route, navigation }: Props) {
   const hand = room?.hand ?? null;
   const isMyTurn = hand?.turn === myUid;
 
-  // Host auto-start when both seated (or roundOver transitions into next round)
+  // Host auto-start when both seated, or when either player signals ready for next round.
   useEffect(() => {
     if (!room || !myUid) return;
     if (room.hostUid !== myUid) return;
     if (room.status === 'waiting' && Object.keys(room.players).length === 2) {
+      startTrashRound(roomCode).catch((e) => setError(e.message));
+    }
+    if (room.status === 'roundOver' && room.nextRoundReady) {
       startTrashRound(roomCode).catch((e) => setError(e.message));
     }
   }, [room, myUid, roomCode]);
@@ -324,7 +327,7 @@ export default function TrashTable({ route, navigation }: Props) {
           <RoundOverModal
             room={room}
             myUid={myUid}
-            onNext={() => doAction(() => startTrashRound(roomCode))}
+            onNext={() => doAction(() => requestNextRound(roomCode))}
             busy={busy}
           />
         )}
@@ -443,7 +446,7 @@ function RoundOverModal({
               : 'You stay at the same slot count next round.'}
           </Text>
           <Pressable style={styles.modalBtn} onPress={onNext} disabled={busy}>
-            <Text style={styles.modalBtnText}>Next round</Text>
+            <Text style={styles.modalBtnText}>▶ Next round</Text>
           </Pressable>
         </View>
       </View>

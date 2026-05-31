@@ -22,7 +22,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useApp } from '../state/store';
 import { db, ensureSignedIn } from '../net/firebase';
 import { registerPushForRoom } from '../net/notifications';
-import { markConnected, reorderHand, RoomDoc, subscribeRoom } from '../net/room';
+import { markConnected, reorderHand, requestNextRound, RoomDoc, subscribeRoom } from '../net/room';
 import { Reactions } from '../components/Reactions';
 import { scaleStyles, useLayoutScale } from '../theme/responsive';
 import {
@@ -161,6 +161,9 @@ export default function TTTTable({ route, navigation }: Props) {
     if (room.gameType !== 'three-thirteen') return;
     if (room.status === 'waiting' && Object.keys(room.players).length === 2) {
       startTTTHand(roomCode).catch((e) => setError(e.message));
+    }
+    if (room.status === 'handOver' && room.nextRoundReady && room.handResult) {
+      startNextTTTHand(roomCode).catch((e) => setError(e.message));
     }
   }, [room, myUid, roomCode]);
 
@@ -720,7 +723,7 @@ export default function TTTTable({ route, navigation }: Props) {
           <HandOverModal
             room={room}
             myUid={myUid}
-            onNext={() => doAction(() => startNextTTTHand(roomCode))}
+            onNext={() => doAction(() => requestNextRound(roomCode))}
             busy={busy}
           />
         )}

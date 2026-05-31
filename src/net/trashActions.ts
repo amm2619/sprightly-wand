@@ -105,6 +105,7 @@ export async function startTrashRound(code: string): Promise<void> {
       } as TrashHand,
       handResult: null,
       lastAction: { type: 'startTrashRound', by: uid, at: serverTimestamp() },
+      nextRoundReady: false,
     };
 
     if (someoneDone) {

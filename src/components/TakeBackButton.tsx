@@ -29,25 +29,31 @@ export function TakeBackButton({ expiresAt, onUndo, onExpire }: Props) {
   const secs = Math.ceil(remaining / 1000);
 
   return (
-    <Pressable style={styles.btn} onPress={onUndo}>
-      <Text style={styles.txt}>↩ Take back · {secs}s</Text>
+    <Pressable style={({ pressed }) => [styles.btn, pressed && { opacity: 0.8 }]} onPress={onUndo}>
+      <Text style={styles.txt}>↩  Take back  ·  {secs}s</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   btn: {
-    backgroundColor: theme.accentDark,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    alignSelf: 'center',
-    marginBottom: 6,
+    backgroundColor: theme.accent,
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    alignItems: 'center',
+    shadowColor: theme.accent,
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
   txt: {
-    color: theme.ink,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    color: theme.feltDark,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });

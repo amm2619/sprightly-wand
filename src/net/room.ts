@@ -29,6 +29,9 @@ export type RoomDoc = {
   status: RoomStatus;
   gameType?: GameType; // missing on legacy rooms = phase10
   phase10Variant?: string; // e.g. 'classic' | 'tough-10'; missing = 'classic'
+  // Set to true by either player to signal the host to deal the next round/hand.
+  // The host's device watches for this and calls start* automatically.
+  nextRoundReady?: boolean;
   // Ephemeral "tap reaction" (IG-Live-style floating emoji). Each tap overwrites
   // this with a fresh `id`; both clients animate one emoji per id they observe.
   lastReaction?: Reaction;
@@ -280,6 +283,14 @@ export async function markConnected(code: string, connected: boolean): Promise<v
  * A plain updateDoc (no transaction) is fine — it's a single ephemeral field
  * and a dropped/raced write just means one missed emoji.
  */
+/** Signal either player's intent to start the next round/hand.
+ * The host's device watches for this flag and calls the actual start function,
+ * since dealing requires writing both players' private hands (host-only permission). */
+export async function requestNextRound(code: string): Promise<void> {
+  await ensureSignedIn();
+  await updateDoc(doc(db, 'rooms', code), { nextRoundReady: true });
+}
+
 export async function sendReaction(code: string, emoji: string): Promise<void> {
   const uid = await ensureSignedIn();
   const ref = doc(db, 'rooms', code);
