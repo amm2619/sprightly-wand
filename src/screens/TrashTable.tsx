@@ -432,6 +432,7 @@ function RoundOverModal({
 }: { room: FullRoom; myUid: string; onNext: () => void; busy: boolean }) {
   const winner = room.handResult!.winner;
   const isMe = winner === myUid;
+  const deckTop = room.hand?.deck?.[0];
   return (
     <Modal transparent animationType="fade">
       <View style={styles.modalBg}>
@@ -445,6 +446,12 @@ function RoundOverModal({
               ? `Next round you play for ${Math.max((room.hand?.roundSizes?.[myUid] ?? 10) - 1, 0)} slots.`
               : 'You stay at the same slot count next round.'}
           </Text>
+          {deckTop && (
+            <View style={styles.deckReveal}>
+              <Text style={styles.deckRevealLabel}>TOP OF DECK</Text>
+              <GameCard card={deckTop} />
+            </View>
+          )}
           <Pressable style={styles.modalBtn} onPress={onNext} disabled={busy}>
             <Text style={styles.modalBtnText}>▶ Next round</Text>
           </Pressable>
@@ -583,4 +590,18 @@ const styles = StyleSheet.create({
   modalBtnText: { color: theme.feltDark, fontWeight: '700', fontSize: 16 },
   modalBtnSecondary: { paddingVertical: 10, marginTop: 8 },
   modalBtnSecondaryText: { color: theme.inkDim, fontSize: 14 },
+  deckReveal: {
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: theme.feltLight,
+  },
+  deckRevealLabel: {
+    color: theme.inkFaint,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+  },
 });

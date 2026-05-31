@@ -374,9 +374,10 @@ export default function TTTTable({ route, navigation }: Props) {
           <View>
             <Text style={s.topBarCode}>ROOM · {roomCode} · 3 TO 13</Text>
             {hand && (
-              <Text style={s.topBarMeta}>
-                HAND {hand.handNumber}/11 · <Text style={{ color: theme.accent }}>{rankLabel(hand.wildRank as 1)}s WILD</Text>
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                <Text style={s.topBarMeta}>HAND {hand.handNumber}/11</Text>
+                <Text style={styles.wildBadge}>{rankLabel(hand.wildRank as 1)}s WILD</Text>
+              </View>
             )}
           </View>
           <View style={styles.topBarRight}>
@@ -780,6 +781,7 @@ function MeldDisplay({ group }: { group: LaidGroup }) {
 function HandOverModal({ room, myUid, onNext, busy }: { room: FullRoom; myUid: string; onNext: () => void; busy: boolean }) {
   const result = room.handResult!;
   const opp = Object.keys(room.players).find((u) => u !== myUid)!;
+  const deckTop = room.hand?.deck?.[0];
   return (
     <Modal transparent animationType="fade">
       <View style={styles.modalBg}>
@@ -800,6 +802,12 @@ function HandOverModal({ room, myUid, onNext, busy }: { room: FullRoom; myUid: s
               <Text style={styles.modalMeta}>{room.progress![opp].totalScore} pts total</Text>
             </View>
           </View>
+          {deckTop && (
+            <View style={styles.deckReveal}>
+              <Text style={styles.deckRevealLabel}>TOP OF DECK</Text>
+              <GameCard card={deckTop} />
+            </View>
+          )}
           <Pressable style={styles.modalBtn} onPress={onNext} disabled={busy}>
             <Text style={styles.modalBtnText}>Next hand</Text>
           </Pressable>
@@ -955,4 +963,29 @@ const styles = StyleSheet.create({
   modalBtnText: { color: theme.feltDark, fontWeight: '700', fontSize: 16 },
   modalBtnSecondary: { paddingVertical: 10, marginTop: 8 },
   modalBtnSecondaryText: { color: theme.inkDim, fontSize: 14 },
+  deckReveal: {
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: theme.feltLight,
+  },
+  deckRevealLabel: {
+    color: theme.inkFaint,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+  },
+  wildBadge: {
+    color: theme.feltDark,
+    backgroundColor: theme.accent,
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+    letterSpacing: 0.5,
+    overflow: 'hidden',
+  },
 });
