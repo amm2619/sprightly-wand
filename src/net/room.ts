@@ -319,6 +319,20 @@ export async function reorderHand(code: string, orderedIds: string[]): Promise<v
   });
 }
 
+/** Reset series wins for all players in a room to zero. Either player may call this. */
+export async function resetSeriesWins(code: string): Promise<void> {
+  const uid = await ensureSignedIn();
+  const ref = doc(db, 'rooms', code);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error('Room not found');
+    const data = snap.data() as RoomDoc;
+    if (!data.players[uid]) throw new Error('You are not in this room');
+    const uids = Object.keys(data.players);
+    tx.update(ref, { seriesWins: Object.fromEntries(uids.map((u) => [u, 0])) });
+  });
+}
+
 export function subscribeRoom(
   code: string,
   onChange: (room: RoomDoc | null) => void,

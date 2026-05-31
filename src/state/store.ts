@@ -5,33 +5,39 @@ type AppState = {
   nickname: string;
   lastRoomCode: string | null;
   compactMode: boolean;
+  takeBackEnabled: boolean;
   hydrated: boolean;
   setNickname: (name: string) => Promise<void>;
   setLastRoomCode: (code: string | null) => Promise<void>;
   setCompactMode: (enabled: boolean) => Promise<void>;
+  setTakeBackEnabled: (enabled: boolean) => Promise<void>;
   hydrate: () => Promise<void>;
 };
 
 const KEY_NICK = 'sw.nickname';
 const KEY_LAST_ROOM = 'sw.lastRoom';
 const KEY_COMPACT = 'sw.compactMode';
+const KEY_TAKE_BACK = 'sw.takeBack';
 
 export const useApp = create<AppState>((set) => ({
   nickname: '',
   lastRoomCode: null,
   compactMode: false,
+  takeBackEnabled: false,
   hydrated: false,
 
   hydrate: async () => {
-    const [nick, room, compact] = await Promise.all([
+    const [nick, room, compact, takeBack] = await Promise.all([
       AsyncStorage.getItem(KEY_NICK),
       AsyncStorage.getItem(KEY_LAST_ROOM),
       AsyncStorage.getItem(KEY_COMPACT),
+      AsyncStorage.getItem(KEY_TAKE_BACK),
     ]);
     set({
       nickname: nick ?? '',
       lastRoomCode: room,
       compactMode: compact === '1',
+      takeBackEnabled: takeBack === '1',
       hydrated: true,
     });
   },
@@ -51,5 +57,10 @@ export const useApp = create<AppState>((set) => ({
   setCompactMode: async (enabled) => {
     await AsyncStorage.setItem(KEY_COMPACT, enabled ? '1' : '0');
     set({ compactMode: enabled });
+  },
+
+  setTakeBackEnabled: async (enabled) => {
+    await AsyncStorage.setItem(KEY_TAKE_BACK, enabled ? '1' : '0');
+    set({ takeBackEnabled: enabled });
   },
 }));

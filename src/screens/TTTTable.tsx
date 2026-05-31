@@ -10,8 +10,10 @@ import { useDragCtx, type DropTarget } from '../components/DragContext';
 import { DraggableHand } from '../components/DraggableHand';
 import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
+import { GameSettingsModal } from '../components/GameSettingsModal';
 import { MyField } from '../components/MyField';
 import { PlayerField } from '../components/PlayerField';
+import { TakeBackButton } from '../components/TakeBackButton';
 import { rankLabel, StdCard, Suit } from '../games/standard/types';
 import { GroupKind, isValidRun, isValidSet, LaidGroup } from '../games/ttt/rules';
 import { IconToggle } from '../components/IconToggle';
@@ -37,6 +39,9 @@ import {
   TTTHand,
   TTTHandResult,
   TTTProgress,
+  undiscardTTT,
+  undrawFromDeckTTT,
+  undrawFromDiscardTTT,
   unlayThisTurnTTT,
 } from '../net/tttActions';
 import { theme } from '../theme/colors';
@@ -65,9 +70,12 @@ export default function TTTTable({ route, navigation }: Props) {
   const [handOrder, setHandOrder] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingTakeBack, setPendingTakeBack] = useState<{ type: 'drawDeck' | 'drawDiscard' | 'discard'; expiresAt: number } | null>(null);
+  const [showGameSettings, setShowGameSettings] = useState(false);
 
   useKeepAwake();
   const compact = useApp((s) => s.compactMode);
+  const takeBackEnabled = useApp((s) => s.takeBackEnabled);
   const scale = useLayoutScale();
   const s = useMemo(() => scaleStyles(styles, scale), [scale]);
 
@@ -181,6 +189,28 @@ export default function TTTTable({ route, navigation }: Props) {
     finally { setBusy(false); }
   };
 
+  // Cancel take-back if hand ends or state no longer allows undo.
+  useEffect(() => {
+    if (!pendingTakeBack || !room) return;
+    if (room.status !== 'playing') { setPendingTakeBack(null); return; }
+    const h = room.hand;
+    if (!h) return;
+    if (pendingTakeBack.type === 'discard') {
+      if (h.turn !== opponentUid || h.hasDrawn) setPendingTakeBack(null);
+    } else {
+      if (h.turn !== myUid || !h.hasDrawn) setPendingTakeBack(null);
+    }
+  }, [room, pendingTakeBack, myUid, opponentUid]);
+
+  const onTakeBack = () => {
+    if (!pendingTakeBack) return;
+    const { type } = pendingTakeBack;
+    setPendingTakeBack(null);
+    if (type === 'drawDeck') doAction(() => undrawFromDeckTTT(roomCode));
+    else if (type === 'drawDiscard') doAction(() => undrawFromDiscardTTT(roomCode));
+    else doAction(() => undiscardTTT(roomCode));
+  };
+
   const stagedIds = new Set(layStaging.flatMap((g) => g.cardIds));
 
   // Lay mode helpers — Phase-10-style: create empty slots, then drop cards
@@ -253,7 +283,12 @@ export default function TTTTable({ route, navigation }: Props) {
   const onDiscard = () => {
     if (selected.size !== 1) { setError('Pick one card to discard'); return; }
     const id = Array.from(selected)[0];
-    doAction(async () => { await discardTTT(roomCode, id); setSelected(new Set()); });
+    setPendingTakeBack(null);
+    setBusy(true); setError(null);
+    discardTTT(roomCode, id)
+      .then(() => { if (takeBackEnabled) setPendingTakeBack({ type: 'discard', expiresAt: Date.now() + 3000 }); })
+      .catch((e) => setError((e as Error).message))
+      .finally(() => { setBusy(false); setSelected(new Set()); });
   };
 
   // Drop handlers for drag-and-drop.
@@ -341,9 +376,14 @@ export default function TTTTable({ route, navigation }: Props) {
               </Text>
             )}
           </View>
-          <Pressable onPress={() => navigation.popToTop()} style={({ pressed }) => [s.quitBtn, pressed && { opacity: 0.7 }]}>
-            <Text style={s.quitText}>✕ Quit</Text>
-          </Pressable>
+          <View style={styles.topBarRight}>
+            <Pressable onPress={() => setShowGameSettings(true)} style={({ pressed }) => [s.quitBtn, pressed && { opacity: 0.7 }]}>
+              <Text style={s.quitText}>⚙</Text>
+            </Pressable>
+            <Pressable onPress={() => navigation.popToTop()} style={({ pressed }) => [s.quitBtn, pressed && { opacity: 0.7 }]}>
+              <Text style={s.quitText}>✕ Quit</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={{ flex: 1 }}>
@@ -455,7 +495,14 @@ export default function TTTTable({ route, navigation }: Props) {
 
         {/* Piles + wild banner */}
         <View style={[s.midRow, compact && s.midRowCompact]}>
-          <Pressable onPress={isMyTurn && !hand?.hasDrawn && !busy ? () => doAction(() => drawFromDeckTTT(roomCode)) : undefined} style={s.pile}>
+          <Pressable onPress={isMyTurn && !hand?.hasDrawn && !busy ? async () => {
+            setPendingTakeBack(null); setBusy(true); setError(null);
+            try {
+              await drawFromDeckTTT(roomCode);
+              if (takeBackEnabled) setPendingTakeBack({ type: 'drawDeck', expiresAt: Date.now() + 3000 });
+            } catch (e) { setError((e as Error).message); }
+            finally { setBusy(false); }
+          } : undefined} style={s.pile}>
             <GameCard backTheme="ttt" />
             <Text style={s.pileLabel}>Deck · {hand?.deck?.length ?? 0}</Text>
           </Pressable>
@@ -465,7 +512,14 @@ export default function TTTTable({ route, navigation }: Props) {
             enabled={mode === 'normal' && isMyTurn && !!hand?.hasDrawn && !busy}
           >
             <Pressable
-              onPress={isMyTurn && !hand?.hasDrawn && hand?.discard?.length && !busy ? () => doAction(() => drawFromDiscardTTT(roomCode)) : undefined}
+              onPress={isMyTurn && !hand?.hasDrawn && hand?.discard?.length && !busy ? async () => {
+                setPendingTakeBack(null); setBusy(true); setError(null);
+                try {
+                  await drawFromDiscardTTT(roomCode);
+                  if (takeBackEnabled) setPendingTakeBack({ type: 'drawDiscard', expiresAt: Date.now() + 3000 });
+                } catch (e) { setError((e as Error).message); }
+                finally { setBusy(false); }
+              } : undefined}
               style={s.pile}
             >
               {hand?.discard?.length
@@ -609,6 +663,14 @@ export default function TTTTable({ route, navigation }: Props) {
           />
         </View>
 
+        {pendingTakeBack && (
+          <TakeBackButton
+            expiresAt={pendingTakeBack.expiresAt}
+            onUndo={onTakeBack}
+            onExpire={() => setPendingTakeBack(null)}
+          />
+        )}
+
         <View style={s.actionBar}>
           {isStuck ? (
             <Button
@@ -658,7 +720,6 @@ export default function TTTTable({ route, navigation }: Props) {
           <HandOverModal
             room={room}
             myUid={myUid}
-            isHost={room.hostUid === myUid}
             onNext={() => doAction(() => startNextTTTHand(roomCode))}
             busy={busy}
           />
@@ -671,6 +732,19 @@ export default function TTTTable({ route, navigation }: Props) {
             onRematch={() => doAction(() => resetTTTForRematch(roomCode))}
             onHome={() => navigation.popToTop()}
             busy={busy}
+          />
+        )}
+
+        {showGameSettings && myUid && (
+          <GameSettingsModal
+            roomCode={roomCode}
+            myUid={myUid}
+            players={Object.entries(room.players).map(([uid, p]) => ({
+              uid,
+              nickname: p.nickname,
+              wins: room.seriesWins?.[uid] ?? 0,
+            }))}
+            onClose={() => setShowGameSettings(false)}
           />
         )}
 
@@ -700,7 +774,7 @@ function MeldDisplay({ group }: { group: LaidGroup }) {
 }
 
 
-function HandOverModal({ room, myUid, isHost, onNext, busy }: { room: FullRoom; myUid: string; isHost: boolean; onNext: () => void; busy: boolean }) {
+function HandOverModal({ room, myUid, onNext, busy }: { room: FullRoom; myUid: string; onNext: () => void; busy: boolean }) {
   const result = room.handResult!;
   const opp = Object.keys(room.players).find((u) => u !== myUid)!;
   return (
@@ -723,13 +797,9 @@ function HandOverModal({ room, myUid, isHost, onNext, busy }: { room: FullRoom; 
               <Text style={styles.modalMeta}>{room.progress![opp].totalScore} pts total</Text>
             </View>
           </View>
-          {isHost ? (
-            <Pressable style={styles.modalBtn} onPress={onNext} disabled={busy}>
-              <Text style={styles.modalBtnText}>Next hand</Text>
-            </Pressable>
-          ) : (
-            <Text style={styles.dim}>Waiting for host to start next hand…</Text>
-          )}
+          <Pressable style={styles.modalBtn} onPress={onNext} disabled={busy}>
+            <Text style={styles.modalBtnText}>Next hand</Text>
+          </Pressable>
         </View>
       </View>
     </Modal>
@@ -788,6 +858,7 @@ const styles = StyleSheet.create({
   },
   topBarCode: { color: theme.inkDim, fontSize: 10, letterSpacing: 2, fontWeight: '700' },
   topBarMeta: { color: theme.inkDim, fontSize: 10, letterSpacing: 1, fontWeight: '700', marginTop: 1 },
+  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   quitBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: theme.inkFaint },
   quitText: { color: theme.inkDim, fontSize: 11, fontWeight: '700' },
   meldRow: { paddingHorizontal: 12, paddingBottom: 6, gap: 8 },

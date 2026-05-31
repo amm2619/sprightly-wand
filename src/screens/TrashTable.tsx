@@ -9,6 +9,8 @@ import { useDragCtx, type DropTarget } from '../components/DragContext';
 import { DraggableCard } from '../components/DraggableCard';
 import { DropZoneView } from '../components/DropZoneView';
 import { FeltBackground } from '../components/FeltBackground';
+import { GameSettingsModal } from '../components/GameSettingsModal';
+import { TakeBackButton } from '../components/TakeBackButton';
 import { MyField } from '../components/MyField';
 import { PlayerField } from '../components/PlayerField';
 import { canPlaceAtSlot, slotLabel } from '../games/trash/rules';
@@ -27,9 +29,13 @@ import {
   resetTrashForRematch,
   startTrashRound,
   TrashHand,
+  undiscardTrashHeld,
+  undrawTrashDeck,
+  undrawTrashDiscard,
 } from '../net/trashActions';
 import { theme } from '../theme/colors';
 import { useMemo as useMemoReact } from 'react';
+import { useApp } from '../state/store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Table'>;
 
@@ -47,6 +53,10 @@ export default function TrashTable({ route, navigation }: Props) {
   const [myUid, setMyUid] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingTakeBack, setPendingTakeBack] = useState<{ type: 'drawDeck' | 'drawDiscard' | 'discard'; expiresAt: number } | null>(null);
+  const [showGameSettings, setShowGameSettings] = useState(false);
+
+  const takeBackEnabled = useApp((s) => s.takeBackEnabled);
 
   useKeepAwake();
   const scale = useLayoutScale();
@@ -102,6 +112,28 @@ export default function TrashTable({ route, navigation }: Props) {
     finally { setBusy(false); }
   };
 
+  // Cancel take-back if hand ends or state no longer allows undo.
+  useEffect(() => {
+    if (!pendingTakeBack || !room) return;
+    if (room.status !== 'playing') { setPendingTakeBack(null); return; }
+    const h = room.hand;
+    if (!h) return;
+    if (pendingTakeBack.type === 'discard') {
+      if (h.turn !== opponentUid || h.held !== null) setPendingTakeBack(null);
+    } else {
+      if (h.turn !== myUid || !h.held) setPendingTakeBack(null);
+    }
+  }, [room, pendingTakeBack, myUid, opponentUid]);
+
+  const onTakeBack = () => {
+    if (!pendingTakeBack) return;
+    const { type } = pendingTakeBack;
+    setPendingTakeBack(null);
+    if (type === 'drawDeck') doAction(() => undrawTrashDeck(roomCode));
+    else if (type === 'drawDiscard') doAction(() => undrawTrashDiscard(roomCode));
+    else doAction(() => undiscardTrashHeld(roomCode));
+  };
+
   // Drop handler for Trash: held card → own slot or discard.
   const drag = useDragCtx();
   useEffect(() => {
@@ -141,9 +173,14 @@ export default function TrashTable({ route, navigation }: Props) {
       <SafeAreaView style={{ flex: 1 }}>
         <View style={s.topBar}>
           <Text style={s.topBarCode}>ROOM · {roomCode} · TRASH</Text>
+          <View style={styles.topBarRight}>
+          <Pressable onPress={() => setShowGameSettings(true)} style={({ pressed }) => [s.quitBtn, pressed && { opacity: 0.7 }]}>
+            <Text style={s.quitText}>⚙</Text>
+          </Pressable>
           <Pressable onPress={() => navigation.popToTop()} style={({ pressed }) => [s.quitBtn, pressed && { opacity: 0.7 }]}>
             <Text style={s.quitText}>✕ Quit</Text>
           </Pressable>
+          </View>
         </View>
 
         <View style={{ flex: 1 }}>
@@ -165,7 +202,14 @@ export default function TrashTable({ route, navigation }: Props) {
         {/* Middle: Deck, Held (if any), Discard */}
         <View style={s.midRow}>
           <Pressable
-            onPress={isMyTurn && !hand?.held && !busy ? () => doAction(() => drawTrashDeck(roomCode)) : undefined}
+            onPress={isMyTurn && !hand?.held && !busy ? async () => {
+              setPendingTakeBack(null); setBusy(true); setError(null);
+              try {
+                await drawTrashDeck(roomCode);
+                if (takeBackEnabled) setPendingTakeBack({ type: 'drawDeck', expiresAt: Date.now() + 3000 });
+              } catch (e) { setError((e as Error).message); }
+              finally { setBusy(false); }
+            } : undefined}
             style={s.pile}
           >
             <GameCard backTheme="trash" />
@@ -193,7 +237,14 @@ export default function TrashTable({ route, navigation }: Props) {
             <Pressable
               onPress={
                 isMyTurn && !hand?.held && hand?.discard?.length && !busy
-                  ? () => doAction(() => drawTrashDiscard(roomCode))
+                  ? async () => {
+                      setPendingTakeBack(null); setBusy(true); setError(null);
+                      try {
+                        await drawTrashDiscard(roomCode);
+                        if (takeBackEnabled) setPendingTakeBack({ type: 'drawDiscard', expiresAt: Date.now() + 3000 });
+                      } catch (e) { setError((e as Error).message); }
+                      finally { setBusy(false); }
+                    }
                   : undefined
               }
               style={s.pile}
@@ -241,13 +292,28 @@ export default function TrashTable({ route, navigation }: Props) {
           />
         </PlayerField>
 
+        {pendingTakeBack && (
+          <TakeBackButton
+            expiresAt={pendingTakeBack.expiresAt}
+            onUndo={onTakeBack}
+            onExpire={() => setPendingTakeBack(null)}
+          />
+        )}
+
         {/* Action bar */}
         <View style={s.actionBar}>
           <Button
             label="Discard held"
             variant="primary"
             size="lg"
-            onPress={() => doAction(() => discardTrashHeld(roomCode))}
+            onPress={async () => {
+              setPendingTakeBack(null); setBusy(true); setError(null);
+              try {
+                await discardTrashHeld(roomCode);
+                if (takeBackEnabled) setPendingTakeBack({ type: 'discard', expiresAt: Date.now() + 3000 });
+              } catch (e) { setError((e as Error).message); }
+              finally { setBusy(false); }
+            }}
             disabled={!isMyTurn || !hand?.held || busy}
           />
         </View>
@@ -258,7 +324,6 @@ export default function TrashTable({ route, navigation }: Props) {
           <RoundOverModal
             room={room}
             myUid={myUid}
-            isHost={room.hostUid === myUid}
             onNext={() => doAction(() => startTrashRound(roomCode))}
             busy={busy}
           />
@@ -271,6 +336,18 @@ export default function TrashTable({ route, navigation }: Props) {
             onRematch={() => doAction(() => resetTrashForRematch(roomCode))}
             onHome={() => navigation.popToTop()}
             busy={busy}
+          />
+        )}
+        {showGameSettings && myUid && (
+          <GameSettingsModal
+            roomCode={roomCode}
+            myUid={myUid}
+            players={Object.entries(room.players).map(([uid, p]) => ({
+              uid,
+              nickname: p.nickname,
+              wins: room.seriesWins?.[uid] ?? 0,
+            }))}
+            onClose={() => setShowGameSettings(false)}
           />
         )}
 
@@ -348,8 +425,8 @@ function SlotGrid({
 }
 
 function RoundOverModal({
-  room, myUid, isHost, onNext, busy,
-}: { room: FullRoom; myUid: string; isHost: boolean; onNext: () => void; busy: boolean }) {
+  room, myUid, onNext, busy,
+}: { room: FullRoom; myUid: string; onNext: () => void; busy: boolean }) {
   const winner = room.handResult!.winner;
   const isMe = winner === myUid;
   return (
@@ -358,20 +435,16 @@ function RoundOverModal({
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Round over</Text>
           <Text style={styles.modalLine}>
-            {isMe ? '🏆 You won the round!' : `${room.players[winner].nickname} won the round.`}
+            {isMe ? 'You won the round!' : `${room.players[winner].nickname} won the round.`}
           </Text>
           <Text style={styles.modalMeta}>
             {isMe
               ? `Next round you play for ${Math.max((room.hand?.roundSizes?.[myUid] ?? 10) - 1, 0)} slots.`
               : 'You stay at the same slot count next round.'}
           </Text>
-          {isHost ? (
-            <Pressable style={styles.modalBtn} onPress={onNext} disabled={busy}>
-              <Text style={styles.modalBtnText}>Next round</Text>
-            </Pressable>
-          ) : (
-            <Text style={styles.dim}>Waiting for host to start next round…</Text>
-          )}
+          <Pressable style={styles.modalBtn} onPress={onNext} disabled={busy}>
+            <Text style={styles.modalBtnText}>Next round</Text>
+          </Pressable>
         </View>
       </View>
     </Modal>
@@ -426,6 +499,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: theme.feltLight,
   },
   topBarCode: { color: theme.inkDim, fontSize: 10, letterSpacing: 2, fontWeight: '700' },
+  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   quitBtn: {
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
     borderWidth: 1, borderColor: theme.inkFaint,

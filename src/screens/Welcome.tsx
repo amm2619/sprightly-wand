@@ -57,6 +57,13 @@ export default function Welcome({ navigation }: Props) {
     <FeltBackground>
       <BackgroundCardFan />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <Pressable
+          style={({ pressed }) => [styles.gearBtn, pressed && { opacity: 0.6 }]}
+          onPress={() => navigation.navigate('Settings')}
+          hitSlop={12}
+        >
+          <Text style={styles.gearIcon}>⚙</Text>
+        </Pressable>
         <KeyboardAvoidingView
           style={[styles.root, { paddingBottom: insets.bottom + 32 }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -247,6 +254,14 @@ const fanStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   root: { flex: 1, paddingHorizontal: 28, justifyContent: 'space-between' },
   header: { marginTop: 52, alignItems: 'center' },
+  gearBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    zIndex: 10,
+    padding: 6,
+  },
+  gearIcon: { color: theme.inkDim, fontSize: 22 },
   mark: {
     color: theme.accent,
     fontSize: 64,

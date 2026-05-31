@@ -46,11 +46,17 @@ import {
   resetForRematch,
   startGame,
   startNextHand,
+  undiscardCard,
+  undrawFromDeck,
+  undrawFromDiscard,
 } from '../net/actions';
 import { db, ensureSignedIn } from '../net/firebase';
 import { registerPushForRoom } from '../net/notifications';
 import { markConnected, reorderHand, RoomDoc, subscribeRoom } from '../net/room';
+import { GameSettingsModal } from '../components/GameSettingsModal';
+import { TakeBackButton } from '../components/TakeBackButton';
 import { Reactions } from '../components/Reactions';
+import { useApp } from '../state/store';
 import { scaleStyles, useLayoutScale } from '../theme/responsive';
 import { theme } from '../theme/colors';
 import TrashTable from './TrashTable';
@@ -142,6 +148,10 @@ export default function Table({ route, navigation }: Props) {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingTakeBack, setPendingTakeBack] = useState<{ type: 'drawDeck' | 'drawDiscard' | 'discard'; expiresAt: number } | null>(null);
+  const [showGameSettings, setShowGameSettings] = useState(false);
+
+  const takeBackEnabled = useApp((s) => s.takeBackEnabled);
 
   const [wildPrompt, setWildPrompt] = useState<{
     wilds: CardT[];
@@ -292,8 +302,46 @@ export default function Table({ route, navigation }: Props) {
     finally { setBusy(false); }
   };
 
-  const onDrawDeck = () => doAction(() => drawFromDeck(roomCode));
-  const onDrawDiscard = () => doAction(() => drawFromDiscard(roomCode));
+  // Cancel take-back if the hand ends or the take-back is no longer undoable.
+  useEffect(() => {
+    if (!pendingTakeBack || !room) return;
+    if (room.status !== 'playing') { setPendingTakeBack(null); return; }
+    const h = room.hand;
+    if (!h) return;
+    if (pendingTakeBack.type === 'discard') {
+      if (h.turn !== opponentUid || h.hasDrawn) setPendingTakeBack(null);
+    } else {
+      if (h.turn !== myUid || !h.hasDrawn) setPendingTakeBack(null);
+    }
+  }, [room, pendingTakeBack, myUid, opponentUid]);
+
+  const onTakeBack = () => {
+    if (!pendingTakeBack) return;
+    const { type } = pendingTakeBack;
+    setPendingTakeBack(null);
+    if (type === 'drawDeck') doAction(() => undrawFromDeck(roomCode));
+    else if (type === 'drawDiscard') doAction(() => undrawFromDiscard(roomCode));
+    else doAction(() => undiscardCard(roomCode));
+  };
+
+  const onDrawDeck = async () => {
+    setPendingTakeBack(null);
+    setBusy(true); setError(null);
+    try {
+      await drawFromDeck(roomCode);
+      if (takeBackEnabled) setPendingTakeBack({ type: 'drawDeck', expiresAt: Date.now() + 3000 });
+    } catch (e) { setError((e as Error).message); }
+    finally { setBusy(false); }
+  };
+  const onDrawDiscard = async () => {
+    setPendingTakeBack(null);
+    setBusy(true); setError(null);
+    try {
+      await drawFromDiscard(roomCode);
+      if (takeBackEnabled) setPendingTakeBack({ type: 'drawDiscard', expiresAt: Date.now() + 3000 });
+    } catch (e) { setError((e as Error).message); }
+    finally { setBusy(false); }
+  };
 
   // Drag a hand card into a phase slot during lay mode. Appends to staged[slotIdx];
   // if the slot is now full, validates the group locally.
@@ -384,10 +432,15 @@ export default function Table({ route, navigation }: Props) {
   const onDiscard = () => {
     if (selected.size !== 1) { setError('Pick exactly one card to discard'); return; }
     const id = Array.from(selected)[0];
-    doAction(async () => {
-      await discardCard(roomCode, id);
-      setSelected(new Set());
-    });
+    setPendingTakeBack(null);
+    setBusy(true); setError(null);
+    discardCard(roomCode, id)
+      .then(() => {
+        setSelected(new Set());
+        if (takeBackEnabled) setPendingTakeBack({ type: 'discard', expiresAt: Date.now() + 3000 });
+      })
+      .catch((e) => setError((e as Error).message))
+      .finally(() => setBusy(false));
   };
 
   const onStartLay = () => {
@@ -542,12 +595,17 @@ export default function Table({ route, navigation }: Props) {
   return (
     <FeltBackground variant="phase10">
     <SafeAreaView style={{ flex: 1 }}>
-      {/* Top bar: room code + quit */}
+      {/* Top bar: room code + settings + quit */}
       <View style={s.topBar}>
         <Text style={s.topBarCode}>ROOM · {roomCode}</Text>
-        <Pressable onPress={() => navigation.popToTop()} style={({ pressed }) => [s.quitBtn, pressed && { opacity: 0.7 }]}>
-          <Text style={s.quitText}>✕ Quit</Text>
-        </Pressable>
+        <View style={styles.topBarRight}>
+          <Pressable onPress={() => setShowGameSettings(true)} style={({ pressed }) => [s.quitBtn, pressed && { opacity: 0.7 }]}>
+            <Text style={s.quitText}>⚙</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.popToTop()} style={({ pressed }) => [s.quitBtn, pressed && { opacity: 0.7 }]}>
+            <Text style={s.quitText}>✕ Quit</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Opponent header */}
@@ -717,6 +775,14 @@ export default function Table({ route, navigation }: Props) {
         />
       </View>
 
+      {pendingTakeBack && (
+        <TakeBackButton
+          expiresAt={pendingTakeBack.expiresAt}
+          onUndo={onTakeBack}
+          onExpire={() => setPendingTakeBack(null)}
+        />
+      )}
+
       {/* Action bar */}
       <View style={s.actionBar}>
         {mode === 'normal' && (
@@ -773,7 +839,6 @@ export default function Table({ route, navigation }: Props) {
           room={room}
           myUid={myUid}
           onNext={() => doAction(() => startNextHand(roomCode))}
-          isHost={room.hostUid === myUid}
           busy={busy}
         />
       )}
@@ -791,6 +856,18 @@ export default function Table({ route, navigation }: Props) {
         <WildValuePrompt
           prompt={wildPrompt}
           onCancel={() => setWildPrompt(null)}
+        />
+      )}
+      {showGameSettings && myUid && (
+        <GameSettingsModal
+          roomCode={roomCode}
+          myUid={myUid}
+          players={Object.entries(room.players).map(([uid, p]) => ({
+            uid,
+            nickname: p.nickname,
+            wins: room.seriesWins?.[uid] ?? 0,
+          }))}
+          onClose={() => setShowGameSettings(false)}
         />
       )}
 
@@ -873,8 +950,8 @@ function BigBtn({ label, onPress, primary, disabled }: { label: string; onPress?
 const IconToggle = SharedIconToggle;
 
 function HandOverModal({
-  room, myUid, onNext, isHost, busy,
-}: { room: FullRoom; myUid: string; onNext: () => void; isHost: boolean; busy: boolean }) {
+  room, myUid, onNext, busy,
+}: { room: FullRoom; myUid: string; onNext: () => void; busy: boolean }) {
   const result = room.handResult!;
   const opp = Object.keys(room.players).find((u) => u !== myUid)!;
   return (
@@ -897,13 +974,9 @@ function HandOverModal({
               <Text style={styles.modalMeta}>{result.completedPhase[opp] ? 'Phase complete ✓' : 'Phase incomplete'}</Text>
             </View>
           </View>
-          {isHost ? (
-            <Pressable style={styles.modalBtn} onPress={onNext} disabled={busy}>
-              <Text style={styles.modalBtnText}>Next hand</Text>
-            </Pressable>
-          ) : (
-            <Text style={styles.dim}>Waiting for host to start next hand…</Text>
-          )}
+          <Pressable style={styles.modalBtn} onPress={onNext} disabled={busy}>
+            <Text style={styles.modalBtnText}>Next hand</Text>
+          </Pressable>
         </View>
       </View>
     </Modal>
@@ -972,6 +1045,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.feltLight,
   },
+  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   topBarCode: {
     color: theme.inkDim,
     fontSize: 10,

@@ -19,6 +19,7 @@ import HandOver from './src/screens/HandOver';
 import Host from './src/screens/Host';
 import Join from './src/screens/Join';
 import Recover from './src/screens/Recover';
+import Settings from './src/screens/Settings';
 import Table from './src/screens/Table';
 import Welcome from './src/screens/Welcome';
 import { useApp } from './src/state/store';
@@ -75,6 +76,7 @@ export default function App() {
           }}
         >
           <Stack.Screen name="Welcome" component={Welcome} options={{ headerShown: false }} />
+          <Stack.Screen name="Settings" component={Settings} options={{ headerShown: false }} />
           <Stack.Screen name="GamePick" component={GamePick} options={{ headerShown: false }} />
           <Stack.Screen name="Host" component={Host} options={{ headerShown: false }} />
           <Stack.Screen name="Join" component={Join} options={{ headerShown: false }} />

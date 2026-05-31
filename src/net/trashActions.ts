@@ -43,7 +43,7 @@ export async function startTrashRound(code: string): Promise<void> {
     const snap = await tx.get(roomRef(code));
     if (!snap.exists()) throw new Error('Room not found');
     const data = snap.data();
-    if (data.hostUid !== uid) throw new Error('Only host can start');
+    if (data.hostUid !== uid && data.status !== 'roundOver') throw new Error('Only host can start the first round');
     if (data.status !== 'waiting' && data.status !== 'roundOver') {
       throw new Error(`Cannot start in status ${data.status}`);
     }
@@ -261,6 +261,70 @@ export async function discardTrashHeld(code: string): Promise<void> {
       'hand.held': null,
       'hand.turn': opp,
       lastAction: { type: 'trashDiscard', by: uid, at: serverTimestamp() },
+    });
+  });
+}
+
+/** Undo drawing from the deck — puts the held card back on top of the deck. */
+export async function undrawTrashDeck(code: string): Promise<void> {
+  const uid = await ensureSignedIn();
+  await runTransaction(db, async (tx) => {
+    const rSnap = await tx.get(roomRef(code));
+    if (!rSnap.exists()) throw new Error('Missing state');
+    const room = rSnap.data();
+    assertPlaying(room.status);
+    const hand = room.hand as TrashHand;
+    if (hand.turn !== uid || !hand.held) throw new Error('Nothing to undo');
+    const last = room.lastAction as { type: string; by: string };
+    if (last.type !== 'drawTrashDeck' || last.by !== uid) throw new Error('Cannot undo this action');
+    tx.update(roomRef(code), {
+      'hand.deck': [hand.held, ...hand.deck],
+      'hand.held': null,
+      lastAction: { type: 'undrawTrashDeck', by: uid, at: serverTimestamp() },
+    });
+  });
+}
+
+/** Undo picking up from the discard — puts the held card back on top of the discard. */
+export async function undrawTrashDiscard(code: string): Promise<void> {
+  const uid = await ensureSignedIn();
+  await runTransaction(db, async (tx) => {
+    const rSnap = await tx.get(roomRef(code));
+    if (!rSnap.exists()) throw new Error('Missing state');
+    const room = rSnap.data();
+    assertPlaying(room.status);
+    const hand = room.hand as TrashHand;
+    if (hand.turn !== uid || !hand.held) throw new Error('Nothing to undo');
+    const last = room.lastAction as { type: string; by: string };
+    if (last.type !== 'drawTrashDiscard' || last.by !== uid) throw new Error('Cannot undo this action');
+    tx.update(roomRef(code), {
+      'hand.discard': [...hand.discard, hand.held],
+      'hand.held': null,
+      lastAction: { type: 'undrawTrashDiscard', by: uid, at: serverTimestamp() },
+    });
+  });
+}
+
+/** Undo discarding the held card — takes the top discard back as held (only if opponent hasn't drawn). */
+export async function undiscardTrashHeld(code: string): Promise<void> {
+  const uid = await ensureSignedIn();
+  await runTransaction(db, async (tx) => {
+    const rSnap = await tx.get(roomRef(code));
+    if (!rSnap.exists()) throw new Error('Missing state');
+    const room = rSnap.data();
+    assertPlaying(room.status);
+    const hand = room.hand as TrashHand;
+    const opp = other(Object.keys(room.players), uid);
+    if (hand.turn !== opp || hand.held !== null) throw new Error('Cannot undo — opponent already drew');
+    const last = room.lastAction as { type: string; by: string };
+    if (last.type !== 'trashDiscard' || last.by !== uid) throw new Error('Cannot undo this action');
+    if (hand.discard.length === 0) throw new Error('Discard is empty');
+    const card = hand.discard[hand.discard.length - 1];
+    tx.update(roomRef(code), {
+      'hand.discard': hand.discard.slice(0, -1),
+      'hand.held': card,
+      'hand.turn': uid,
+      lastAction: { type: 'undiscardTrash', by: uid, at: serverTimestamp() },
     });
   });
 }

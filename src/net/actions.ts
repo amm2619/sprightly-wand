@@ -66,7 +66,7 @@ export async function startGame(code: string): Promise<void> {
     const snap = await tx.get(roomRef(code));
     if (!snap.exists()) throw new Error('Room not found');
     const data = snap.data();
-    if (data.hostUid !== uid) throw new Error('Only host can start');
+    if (data.hostUid !== uid && data.status !== 'handOver') throw new Error('Only host can start the first game');
     if (data.status !== 'waiting' && data.status !== 'handOver') {
       throw new Error(`Cannot start in status ${data.status}`);
     }
@@ -156,7 +156,7 @@ export async function drawFromDeck(code: string): Promise<void> {
       'hand.discard': discard,
       'hand.hasDrawn': true,
       [`hand.counts.${uid}`]: myHand.length,
-      lastAction: { type: 'drawDeck', by: uid, at: serverTimestamp() },
+      lastAction: { type: 'drawDeck', by: uid, at: serverTimestamp(), cardId: drawn.id },
     });
     tx.set(privateHandRef(code, uid), { cards: myHand });
   });
@@ -184,7 +184,7 @@ export async function drawFromDiscard(code: string): Promise<void> {
       'hand.hasDrawn': true,
       'hand.topDiscardIsFresh': false,
       [`hand.counts.${uid}`]: myHand.length,
-      lastAction: { type: 'drawDiscard', by: uid, at: serverTimestamp() },
+      lastAction: { type: 'drawDiscard', by: uid, at: serverTimestamp(), cardId: top.id },
     });
     tx.set(privateHandRef(code, uid), { cards: myHand });
   });
@@ -249,6 +249,91 @@ export async function discardCard(code: string, cardId: string): Promise<void> {
       lastAction: { type: 'discard', by: uid, at: serverTimestamp() },
     });
     tx.set(privateHandRef(code, uid), { cards: newHand });
+  });
+}
+
+/** Undo drawing from the deck — puts the card back on top. */
+export async function undrawFromDeck(code: string): Promise<void> {
+  const uid = await ensureSignedIn();
+  await runTransaction(db, async (tx) => {
+    const rSnap = await tx.get(roomRef(code));
+    const hSnap = await tx.get(privateHandRef(code, uid));
+    if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
+    const room = rSnap.data();
+    assertPlaying(room.status);
+    const hand = room.hand as HandState;
+    if (hand.turn !== uid || !hand.hasDrawn) throw new Error('Nothing to undo');
+    const last = room.lastAction as { type: string; by: string; cardId?: string };
+    if (last.type !== 'drawDeck' || last.by !== uid || !last.cardId) throw new Error('Cannot undo this action');
+    const myCards = hSnap.data().cards as Card[];
+    const idx = myCards.findIndex((c) => c.id === last.cardId);
+    if (idx < 0) throw new Error('Card not in hand');
+    const card = myCards[idx];
+    const newHand = myCards.filter((_, i) => i !== idx);
+    tx.update(roomRef(code), {
+      'hand.deck': [card, ...hand.deck],
+      'hand.hasDrawn': false,
+      [`hand.counts.${uid}`]: newHand.length,
+      lastAction: { type: 'undrawDeck', by: uid, at: serverTimestamp() },
+    });
+    tx.set(privateHandRef(code, uid), { cards: newHand });
+  });
+}
+
+/** Undo picking up from the discard — puts the card back on top. */
+export async function undrawFromDiscard(code: string): Promise<void> {
+  const uid = await ensureSignedIn();
+  await runTransaction(db, async (tx) => {
+    const rSnap = await tx.get(roomRef(code));
+    const hSnap = await tx.get(privateHandRef(code, uid));
+    if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
+    const room = rSnap.data();
+    assertPlaying(room.status);
+    const hand = room.hand as HandState;
+    if (hand.turn !== uid || !hand.hasDrawn) throw new Error('Nothing to undo');
+    const last = room.lastAction as { type: string; by: string; cardId?: string };
+    if (last.type !== 'drawDiscard' || last.by !== uid || !last.cardId) throw new Error('Cannot undo this action');
+    const myCards = hSnap.data().cards as Card[];
+    const idx = myCards.findIndex((c) => c.id === last.cardId);
+    if (idx < 0) throw new Error('Card not in hand');
+    const card = myCards[idx];
+    const newHand = myCards.filter((_, i) => i !== idx);
+    tx.update(roomRef(code), {
+      'hand.discard': [...hand.discard, card],
+      'hand.hasDrawn': false,
+      [`hand.counts.${uid}`]: newHand.length,
+      lastAction: { type: 'undrawDiscard', by: uid, at: serverTimestamp() },
+    });
+    tx.set(privateHandRef(code, uid), { cards: newHand });
+  });
+}
+
+/** Undo a discard — takes the top discard card back into hand (only if opponent hasn't drawn). */
+export async function undiscardCard(code: string): Promise<void> {
+  const uid = await ensureSignedIn();
+  await runTransaction(db, async (tx) => {
+    const rSnap = await tx.get(roomRef(code));
+    const hSnap = await tx.get(privateHandRef(code, uid));
+    if (!rSnap.exists() || !hSnap.exists()) throw new Error('Missing state');
+    const room = rSnap.data();
+    assertPlaying(room.status);
+    const hand = room.hand as HandState;
+    const opp = otherUid(Object.keys(room.players), uid);
+    if (hand.turn !== opp || hand.hasDrawn) throw new Error('Cannot undo — opponent already drew');
+    const last = room.lastAction as { type: string; by: string };
+    if (last.type !== 'discard' || last.by !== uid) throw new Error('Cannot undo this action');
+    if (hand.discard.length === 0) throw new Error('Discard is empty');
+    const card = hand.discard[hand.discard.length - 1];
+    const myCards = hSnap.data().cards as Card[];
+    tx.update(roomRef(code), {
+      'hand.discard': hand.discard.slice(0, -1),
+      'hand.topDiscardIsFresh': false,
+      'hand.hasDrawn': true,
+      'hand.turn': uid,
+      [`hand.counts.${uid}`]: myCards.length + 1,
+      lastAction: { type: 'undiscard', by: uid, at: serverTimestamp() },
+    });
+    tx.set(privateHandRef(code, uid), { cards: [...myCards, card] });
   });
 }
 
