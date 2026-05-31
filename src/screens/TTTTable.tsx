@@ -200,8 +200,6 @@ export default function TTTTable({ route, navigation }: Props) {
     if (!h) return;
     if (pendingTakeBack.type === 'discard') {
       if (h.turn !== opponentUid || h.hasDrawn) setPendingTakeBack(null);
-    } else {
-      if (h.turn !== myUid || !h.hasDrawn) setPendingTakeBack(null);
     }
   }, [room, pendingTakeBack, myUid, opponentUid]);
 
@@ -289,7 +287,7 @@ export default function TTTTable({ route, navigation }: Props) {
     setPendingTakeBack(null);
     setBusy(true); setError(null);
     discardTTT(roomCode, id)
-      .then(() => { if (takeBackEnabled) setPendingTakeBack({ type: 'discard', expiresAt: Date.now() + 3000 }); })
+      .then(() => { if (takeBackEnabled) setPendingTakeBack({ type: 'discard', expiresAt: Date.now() + 5000 }); })
       .catch((e) => setError((e as Error).message))
       .finally(() => { setBusy(false); setSelected(new Set()); });
   };
@@ -503,7 +501,7 @@ export default function TTTTable({ route, navigation }: Props) {
             setPendingTakeBack(null); setBusy(true); setError(null);
             try {
               await drawFromDeckTTT(roomCode);
-              if (takeBackEnabled) setPendingTakeBack({ type: 'drawDeck', expiresAt: Date.now() + 3000 });
+              if (takeBackEnabled) setPendingTakeBack({ type: 'drawDeck', expiresAt: Date.now() + 5000 });
             } catch (e) { setError((e as Error).message); }
             finally { setBusy(false); }
           } : undefined} style={s.pile}>
@@ -520,7 +518,7 @@ export default function TTTTable({ route, navigation }: Props) {
                 setPendingTakeBack(null); setBusy(true); setError(null);
                 try {
                   await drawFromDiscardTTT(roomCode);
-                  if (takeBackEnabled) setPendingTakeBack({ type: 'drawDiscard', expiresAt: Date.now() + 3000 });
+                  if (takeBackEnabled) setPendingTakeBack({ type: 'drawDiscard', expiresAt: Date.now() + 5000 });
                 } catch (e) { setError((e as Error).message); }
                 finally { setBusy(false); }
               } : undefined}

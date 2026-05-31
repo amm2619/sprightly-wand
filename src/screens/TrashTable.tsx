@@ -123,8 +123,6 @@ export default function TrashTable({ route, navigation }: Props) {
     if (!h) return;
     if (pendingTakeBack.type === 'discard') {
       if (h.turn !== opponentUid || h.held !== null) setPendingTakeBack(null);
-    } else {
-      if (h.turn !== myUid || !h.held) setPendingTakeBack(null);
     }
   }, [room, pendingTakeBack, myUid, opponentUid]);
 
@@ -209,7 +207,7 @@ export default function TrashTable({ route, navigation }: Props) {
               setPendingTakeBack(null); setBusy(true); setError(null);
               try {
                 await drawTrashDeck(roomCode);
-                if (takeBackEnabled) setPendingTakeBack({ type: 'drawDeck', expiresAt: Date.now() + 3000 });
+                if (takeBackEnabled) setPendingTakeBack({ type: 'drawDeck', expiresAt: Date.now() + 5000 });
               } catch (e) { setError((e as Error).message); }
               finally { setBusy(false); }
             } : undefined}
@@ -244,7 +242,7 @@ export default function TrashTable({ route, navigation }: Props) {
                       setPendingTakeBack(null); setBusy(true); setError(null);
                       try {
                         await drawTrashDiscard(roomCode);
-                        if (takeBackEnabled) setPendingTakeBack({ type: 'drawDiscard', expiresAt: Date.now() + 3000 });
+                        if (takeBackEnabled) setPendingTakeBack({ type: 'drawDiscard', expiresAt: Date.now() + 5000 });
                       } catch (e) { setError((e as Error).message); }
                       finally { setBusy(false); }
                     }
@@ -313,7 +311,7 @@ export default function TrashTable({ route, navigation }: Props) {
               setPendingTakeBack(null); setBusy(true); setError(null);
               try {
                 await discardTrashHeld(roomCode);
-                if (takeBackEnabled) setPendingTakeBack({ type: 'discard', expiresAt: Date.now() + 3000 });
+                if (takeBackEnabled) setPendingTakeBack({ type: 'discard', expiresAt: Date.now() + 5000 });
               } catch (e) { setError((e as Error).message); }
               finally { setBusy(false); }
             }}

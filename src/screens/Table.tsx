@@ -313,8 +313,6 @@ export default function Table({ route, navigation }: Props) {
     if (!h) return;
     if (pendingTakeBack.type === 'discard') {
       if (h.turn !== opponentUid || h.hasDrawn) setPendingTakeBack(null);
-    } else {
-      if (h.turn !== myUid || !h.hasDrawn) setPendingTakeBack(null);
     }
   }, [room, pendingTakeBack, myUid, opponentUid]);
 
@@ -332,7 +330,7 @@ export default function Table({ route, navigation }: Props) {
     setBusy(true); setError(null);
     try {
       await drawFromDeck(roomCode);
-      if (takeBackEnabled) setPendingTakeBack({ type: 'drawDeck', expiresAt: Date.now() + 3000 });
+      if (takeBackEnabled) setPendingTakeBack({ type: 'drawDeck', expiresAt: Date.now() + 5000 });
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
   };
@@ -341,7 +339,7 @@ export default function Table({ route, navigation }: Props) {
     setBusy(true); setError(null);
     try {
       await drawFromDiscard(roomCode);
-      if (takeBackEnabled) setPendingTakeBack({ type: 'drawDiscard', expiresAt: Date.now() + 3000 });
+      if (takeBackEnabled) setPendingTakeBack({ type: 'drawDiscard', expiresAt: Date.now() + 5000 });
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
   };
@@ -440,7 +438,7 @@ export default function Table({ route, navigation }: Props) {
     discardCard(roomCode, id)
       .then(() => {
         setSelected(new Set());
-        if (takeBackEnabled) setPendingTakeBack({ type: 'discard', expiresAt: Date.now() + 3000 });
+        if (takeBackEnabled) setPendingTakeBack({ type: 'discard', expiresAt: Date.now() + 5000 });
       })
       .catch((e) => setError((e as Error).message))
       .finally(() => setBusy(false));
