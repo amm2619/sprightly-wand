@@ -72,6 +72,7 @@ export default function TTTTable({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [pendingTakeBack, setPendingTakeBack] = useState<{ type: 'drawDeck' | 'drawDiscard' | 'discard'; expiresAt: number } | null>(null);
   const [showGameSettings, setShowGameSettings] = useState(false);
+  const [actionBarH, setActionBarH] = useState(0);
 
   useKeepAwake();
   const compact = useApp((s) => s.compactMode);
@@ -199,7 +200,7 @@ export default function TTTTable({ route, navigation }: Props) {
     const h = room.hand;
     if (!h) return;
     if (pendingTakeBack.type === 'discard') {
-      if (h.turn !== opponentUid || h.hasDrawn) setPendingTakeBack(null);
+      if (h.turn === opponentUid && h.hasDrawn) setPendingTakeBack(null);
     }
   }, [room, pendingTakeBack, myUid, opponentUid]);
 
@@ -666,14 +667,19 @@ export default function TTTTable({ route, navigation }: Props) {
         </View>
 
         {pendingTakeBack && (
-          <TakeBackButton
-            expiresAt={pendingTakeBack.expiresAt}
-            onUndo={onTakeBack}
-            onExpire={() => setPendingTakeBack(null)}
-          />
+          <View
+            pointerEvents="box-none"
+            style={{ position: 'absolute', left: 0, right: 0, bottom: actionBarH, zIndex: 10, elevation: 10 }}
+          >
+            <TakeBackButton
+              expiresAt={pendingTakeBack.expiresAt}
+              onUndo={onTakeBack}
+              onExpire={() => setPendingTakeBack(null)}
+            />
+          </View>
         )}
 
-        <View style={s.actionBar}>
+        <View style={s.actionBar} onLayout={(e) => setActionBarH(e.nativeEvent.layout.height)}>
           {isStuck ? (
             <Button
               label="Go out"
@@ -722,7 +728,9 @@ export default function TTTTable({ route, navigation }: Props) {
           <HandOverModal
             room={room}
             myUid={myUid}
-            onNext={() => doAction(() => requestNextRound(roomCode))}
+            onNext={room.hostUid === myUid
+              ? () => doAction(() => startNextTTTHand(roomCode))
+              : () => doAction(() => requestNextRound(roomCode))}
             busy={busy}
           />
         )}

@@ -161,6 +161,7 @@ export default function Table({ route, navigation }: Props) {
 
   useKeepAwake();
   const [showOppCards, setShowOppCards] = useState(true);
+  const [actionBarH, setActionBarH] = useState(0);
   const scale = useLayoutScale();
   const s = useMemo(() => scaleStyles(styles, scale), [scale]);
 
@@ -312,7 +313,7 @@ export default function Table({ route, navigation }: Props) {
     const h = room.hand;
     if (!h) return;
     if (pendingTakeBack.type === 'discard') {
-      if (h.turn !== opponentUid || h.hasDrawn) setPendingTakeBack(null);
+      if (h.turn === opponentUid && h.hasDrawn) setPendingTakeBack(null);
     }
   }, [room, pendingTakeBack, myUid, opponentUid]);
 
@@ -777,15 +778,20 @@ export default function Table({ route, navigation }: Props) {
       </View>
 
       {pendingTakeBack && (
-        <TakeBackButton
-          expiresAt={pendingTakeBack.expiresAt}
-          onUndo={onTakeBack}
-          onExpire={() => setPendingTakeBack(null)}
-        />
+        <View
+          pointerEvents="box-none"
+          style={{ position: 'absolute', left: 0, right: 0, bottom: actionBarH, zIndex: 10, elevation: 10 }}
+        >
+          <TakeBackButton
+            expiresAt={pendingTakeBack.expiresAt}
+            onUndo={onTakeBack}
+            onExpire={() => setPendingTakeBack(null)}
+          />
+        </View>
       )}
 
       {/* Action bar */}
-      <View style={s.actionBar}>
+      <View style={s.actionBar} onLayout={(e) => setActionBarH(e.nativeEvent.layout.height)}>
         {mode === 'normal' && (
           <>
             <Button
@@ -839,7 +845,9 @@ export default function Table({ route, navigation }: Props) {
         <HandOverModal
           room={room}
           myUid={myUid}
-          onNext={() => doAction(() => requestNextRound(roomCode))}
+          onNext={room.hostUid === myUid
+            ? () => doAction(() => startNextHand(roomCode))
+            : () => doAction(() => requestNextRound(roomCode))}
           busy={busy}
         />
       )}

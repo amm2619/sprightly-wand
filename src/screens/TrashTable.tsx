@@ -55,6 +55,7 @@ export default function TrashTable({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [pendingTakeBack, setPendingTakeBack] = useState<{ type: 'drawDeck' | 'drawDiscard' | 'discard'; expiresAt: number } | null>(null);
   const [showGameSettings, setShowGameSettings] = useState(false);
+  const [actionBarH, setActionBarH] = useState(0);
 
   const takeBackEnabled = useApp((s) => s.takeBackEnabled);
 
@@ -122,7 +123,7 @@ export default function TrashTable({ route, navigation }: Props) {
     const h = room.hand;
     if (!h) return;
     if (pendingTakeBack.type === 'discard') {
-      if (h.turn !== opponentUid || h.held !== null) setPendingTakeBack(null);
+      if (h.turn === opponentUid && h.held !== null) setPendingTakeBack(null);
     }
   }, [room, pendingTakeBack, myUid, opponentUid]);
 
@@ -294,15 +295,20 @@ export default function TrashTable({ route, navigation }: Props) {
         </PlayerField>
 
         {pendingTakeBack && (
-          <TakeBackButton
-            expiresAt={pendingTakeBack.expiresAt}
-            onUndo={onTakeBack}
-            onExpire={() => setPendingTakeBack(null)}
-          />
+          <View
+            pointerEvents="box-none"
+            style={{ position: 'absolute', left: 0, right: 0, bottom: actionBarH, zIndex: 10, elevation: 10 }}
+          >
+            <TakeBackButton
+              expiresAt={pendingTakeBack.expiresAt}
+              onUndo={onTakeBack}
+              onExpire={() => setPendingTakeBack(null)}
+            />
+          </View>
         )}
 
         {/* Action bar */}
-        <View style={s.actionBar}>
+        <View style={s.actionBar} onLayout={(e) => setActionBarH(e.nativeEvent.layout.height)}>
           <Button
             label="Discard held"
             variant="primary"
@@ -325,7 +331,9 @@ export default function TrashTable({ route, navigation }: Props) {
           <RoundOverModal
             room={room}
             myUid={myUid}
-            onNext={() => doAction(() => requestNextRound(roomCode))}
+            onNext={room.hostUid === myUid
+              ? () => doAction(() => startTrashRound(roomCode))
+              : () => doAction(() => requestNextRound(roomCode))}
             busy={busy}
           />
         )}
