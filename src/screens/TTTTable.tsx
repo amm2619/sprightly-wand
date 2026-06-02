@@ -288,7 +288,7 @@ export default function TTTTable({ route, navigation }: Props) {
     setPendingTakeBack(null);
     setBusy(true); setError(null);
     discardTTT(roomCode, id)
-      .then(() => { if (takeBackEnabled) setPendingTakeBack({ type: 'discard', expiresAt: Date.now() + 5000 }); })
+      .then(() => { if (takeBackEnabled) setPendingTakeBack({ type: 'discard', expiresAt: Date.now() + 3000 }); })
       .catch((e) => setError((e as Error).message))
       .finally(() => { setBusy(false); setSelected(new Set()); });
   };
@@ -502,7 +502,7 @@ export default function TTTTable({ route, navigation }: Props) {
             setPendingTakeBack(null); setBusy(true); setError(null);
             try {
               await drawFromDeckTTT(roomCode);
-              if (takeBackEnabled) setPendingTakeBack({ type: 'drawDeck', expiresAt: Date.now() + 5000 });
+              if (takeBackEnabled) setPendingTakeBack({ type: 'drawDeck', expiresAt: Date.now() + 3000 });
             } catch (e) { setError((e as Error).message); }
             finally { setBusy(false); }
           } : undefined} style={s.pile}>
@@ -519,7 +519,7 @@ export default function TTTTable({ route, navigation }: Props) {
                 setPendingTakeBack(null); setBusy(true); setError(null);
                 try {
                   await drawFromDiscardTTT(roomCode);
-                  if (takeBackEnabled) setPendingTakeBack({ type: 'drawDiscard', expiresAt: Date.now() + 5000 });
+                  if (takeBackEnabled) setPendingTakeBack({ type: 'drawDiscard', expiresAt: Date.now() + 3000 });
                 } catch (e) { setError((e as Error).message); }
                 finally { setBusy(false); }
               } : undefined}

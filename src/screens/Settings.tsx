@@ -33,9 +33,9 @@ export default function Settings({ navigation }: Props) {
             onPress={() => setTakeBackEnabled(!takeBackEnabled)}
           >
             <View style={styles.rowText}>
-              <Text style={styles.rowLabel}>5-second take-back</Text>
+              <Text style={styles.rowLabel}>3-second take-back</Text>
               <Text style={styles.rowHint}>
-                After drawing or discarding, a 5-second button lets you undo the action — as long as your opponent hasn't moved yet.
+                After drawing or discarding, a 3-second button lets you undo the action — as long as your opponent hasn't moved yet.
               </Text>
             </View>
             <View style={[styles.toggle, takeBackEnabled && styles.toggleOn]}>
