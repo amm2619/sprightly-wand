@@ -166,6 +166,9 @@ export default function TTTTable({ route, navigation }: Props) {
     if (room.status === 'handOver' && room.nextRoundReady && room.handResult) {
       startNextTTTHand(roomCode).catch((e) => setError(e.message));
     }
+    if (room.status === 'gameOver' && room.nextRoundReady) {
+      resetTTTForRematch(roomCode).catch((e) => setError(e.message));
+    }
   }, [room, myUid, roomCode]);
 
   // Host auto-finalize
@@ -738,8 +741,9 @@ export default function TTTTable({ route, navigation }: Props) {
           <GameOverModal
             room={room}
             myUid={myUid}
-            isHost={room.hostUid === myUid}
-            onRematch={() => doAction(() => resetTTTForRematch(roomCode))}
+            onRematch={room.hostUid === myUid
+              ? () => doAction(() => resetTTTForRematch(roomCode))
+              : () => doAction(() => requestNextRound(roomCode))}
             onHome={() => navigation.popToTop()}
             busy={busy}
           />
@@ -823,7 +827,7 @@ function HandOverModal({ room, myUid, onNext, busy }: { room: FullRoom; myUid: s
   );
 }
 
-function GameOverModal({ room, myUid, isHost, onRematch, onHome, busy }: { room: FullRoom; myUid: string; isHost: boolean; onRematch: () => void; onHome: () => void; busy: boolean }) {
+function GameOverModal({ room, myUid, onRematch, onHome, busy }: { room: FullRoom; myUid: string; onRematch: () => void; onHome: () => void; busy: boolean }) {
   const winner = room.lastWinner ?? Object.keys(room.players)[0];
   const uids = Object.keys(room.players);
   return (
@@ -843,13 +847,9 @@ function GameOverModal({ room, myUid, isHost, onRematch, onHome, busy }: { room:
               </View>
             ))}
           </View>
-          {isHost ? (
-            <Pressable style={styles.modalBtn} onPress={onRematch} disabled={busy}>
-              <Text style={styles.modalBtnText}>Rematch</Text>
-            </Pressable>
-          ) : (
-            <Text style={styles.dim}>Waiting for host to rematch…</Text>
-          )}
+          <Pressable style={styles.modalBtn} onPress={onRematch} disabled={busy}>
+            <Text style={styles.modalBtnText}>Rematch</Text>
+          </Pressable>
           <Pressable style={styles.modalBtnSecondary} onPress={onHome}>
             <Text style={styles.modalBtnSecondaryText}>Back to home</Text>
           </Pressable>

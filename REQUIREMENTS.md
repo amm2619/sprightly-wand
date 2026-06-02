@@ -428,6 +428,7 @@ The player who went out scores 0 for that hand. The opponent scores the sum of t
 - **REQ-RESULT-01:** After each hand or round ends and scores are finalized, a modal is displayed to both players summarising the outcome.
 - **REQ-RESULT-02:** The modal shall display the top card of the draw pile (`room.hand.deck[0]`) to reveal what card was on top of the deck at the end.
 - **REQ-RESULT-03:** A "Next hand" / "Next round" button is shown to both players. The host's button calls the deal function directly; the guest's button calls `requestNextRound`.
+- **REQ-RESULT-04:** A "Rematch" button is shown to both players on the game-over screen. The host's button calls the rematch/reset function directly; the guest's button calls `requestNextRound`. The host's device detects the signal and initiates the rematch automatically.
 
 ### 9.5 Compact Mode
 

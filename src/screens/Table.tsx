@@ -279,6 +279,9 @@ export default function Table({ route, navigation }: Props) {
     if (room.status === 'handOver' && room.nextRoundReady && room.handResult) {
       startNextHand(roomCode).catch((e) => setError(e.message));
     }
+    if (room.status === 'gameOver' && room.nextRoundReady) {
+      resetForRematch(roomCode).catch((e) => setError(e.message));
+    }
   }, [room, myUid, roomCode]);
 
   // Host auto-finalizes hand — Phase 10 only
@@ -855,8 +858,9 @@ export default function Table({ route, navigation }: Props) {
         <GameOverModal
           room={room}
           myUid={myUid}
-          isHost={room.hostUid === myUid}
-          onRematch={() => doAction(() => resetForRematch(roomCode))}
+          onRematch={room.hostUid === myUid
+            ? () => doAction(() => resetForRematch(roomCode))
+            : () => doAction(() => requestNextRound(roomCode))}
           onHome={() => navigation.popToTop()}
           busy={busy}
         />
@@ -1000,8 +1004,8 @@ function HandOverModal({
 }
 
 function GameOverModal({
-  room, myUid, isHost, onRematch, onHome, busy,
-}: { room: FullRoom; myUid: string; isHost: boolean; onRematch: () => void; onHome: () => void; busy: boolean }) {
+  room, myUid, onRematch, onHome, busy,
+}: { room: FullRoom; myUid: string; onRematch: () => void; onHome: () => void; busy: boolean }) {
   const uids = Object.keys(room.players);
   const winner = room.lastWinner ?? uids[0];
   const seriesWins = room.seriesWins ?? {};
@@ -1022,13 +1026,9 @@ function GameOverModal({
               </View>
             ))}
           </View>
-          {isHost ? (
-            <Pressable style={styles.modalBtn} onPress={onRematch} disabled={busy}>
-              <Text style={styles.modalBtnText}>Rematch</Text>
-            </Pressable>
-          ) : (
-            <Text style={styles.dim}>Waiting for host to rematch…</Text>
-          )}
+          <Pressable style={styles.modalBtn} onPress={onRematch} disabled={busy}>
+            <Text style={styles.modalBtnText}>Rematch</Text>
+          </Pressable>
           <Pressable style={styles.modalBtnSecondary} onPress={onHome}>
             <Text style={styles.modalBtnSecondaryText}>Back to home</Text>
           </Pressable>
