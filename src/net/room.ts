@@ -31,7 +31,12 @@ export type RoomDoc = {
   phase10Variant?: string; // e.g. 'classic' | 'tough-10'; missing = 'classic'
   // Set to true by either player to signal the host to deal the next round/hand.
   // The host's device watches for this and calls start* automatically.
-  nextRoundReady?: boolean;
+  // Written as a timestamp (Date.now()) rather than a plain boolean so each
+  // press is a unique value — Firestore only fires the listener when the
+  // document actually changes, so writing `true` twice in a row (if the
+  // previous signal wasn't cleared) would be a no-op and the host would never
+  // see it. A unique number guarantees a notification every time.
+  nextRoundReady?: boolean | number;
   // Ephemeral "tap reaction" (IG-Live-style floating emoji). Each tap overwrites
   // this with a fresh `id`; both clients animate one emoji per id they observe.
   lastReaction?: Reaction;
@@ -288,7 +293,11 @@ export async function markConnected(code: string, connected: boolean): Promise<v
  * since dealing requires writing both players' private hands (host-only permission). */
 export async function requestNextRound(code: string): Promise<void> {
   await ensureSignedIn();
-  await updateDoc(doc(db, 'rooms', code), { nextRoundReady: true });
+  // Use Date.now() instead of `true` so each call writes a distinct value.
+  // Firestore only notifies listeners when a document actually changes; if the
+  // flag was already `true` from a failed previous cycle, a second `true` write
+  // would be silently swallowed and the host's useEffect would never fire.
+  await updateDoc(doc(db, 'rooms', code), { nextRoundReady: Date.now() });
 }
 
 export async function sendReaction(code: string, emoji: string): Promise<void> {
