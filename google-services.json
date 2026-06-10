@@ -12,7 +12,12 @@
           "package_name": "com.sprightly.wand"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "647438884542-7oe1arluvm5nondrsjdgn68vkb4iudgo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyC6DpbOGYRCJ0mUJ5ocn5WC9Sw-vmP_OvM"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "647438884542-7oe1arluvm5nondrsjdgn68vkb4iudgo.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
