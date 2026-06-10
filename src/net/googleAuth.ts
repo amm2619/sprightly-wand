@@ -1,6 +1,5 @@
 import Constants from 'expo-constants';
 import * as Google from 'expo-auth-session/providers/google';
-import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
@@ -29,21 +28,21 @@ export function isGoogleSignInConfigured(): boolean {
 /**
  * Build the redirect URI for Google OAuth — web only.
  *
- * On web, expo-auth-session must redirect back to the current page origin
- * (e.g. http://localhost:8081 in dev, your deployed domain in production).
- * This URI must be listed under "Authorized redirect URIs" in the Google
- * Cloud Console web OAuth client.
+ * Must point at the URL where the SPA is actually served, not just the origin.
+ * On GitHub Pages project pages the app lives under a subpath (e.g.
+ * https://user.github.io/sprightly-wand/), and redirecting back to the bare
+ * origin lands on GitHub's 404. The returned URI must be listed verbatim under
+ * "Authorized redirect URIs" on the web OAuth client in Google Cloud Console.
  *
  * On native (iOS / Android), expo-auth-session derives the redirect URI
- * automatically from iosClientId / androidClientId using the reversed
- * Google client ID scheme (com.googleusercontent.apps.CLIENT_ID://). Those
- * native OAuth clients do NOT require the URI to be registered — Google
- * accepts reversed client ID schemes by default. We therefore return
- * undefined on native and let the library handle it.
+ * automatically from iosClientId / androidClientId using the reversed Google
+ * client ID scheme (com.googleusercontent.apps.CLIENT_ID://), so we return
+ * undefined and let the library handle it.
  */
 function makeGoogleRedirectUri(): string | undefined {
   if (Platform.OS !== 'web') return undefined;
-  return AuthSession.makeRedirectUri();
+  if (typeof window === 'undefined' || !window.location) return undefined;
+  return window.location.origin + window.location.pathname;
 }
 
 /**
