@@ -63,6 +63,7 @@ export function useGoogleSignIn() {
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: cfg.webClientId,
     iosClientId: cfg.iosClientId,
+    androidClientId: cfg.androidClientId,
     ...(redirectUri ? { redirectUri } : {}),
   });
 
