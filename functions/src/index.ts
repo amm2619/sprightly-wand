@@ -220,16 +220,20 @@ export const migrateUid = onCall(async (request) => {
   }
   const before = roomSnap.data() ?? {};
   const players = (before as { players?: Record<string, unknown> }).players ?? {};
-  if (!(oldUid in players)) {
+  const oldInPlayers = oldUid in players;
+  const newInPlayers = newUid in players;
+  if (oldInPlayers && newInPlayers) {
+    // Both are seats — migrating would displace the other player. Refuse.
     throw new HttpsError(
       'failed-precondition',
-      `${oldUid} is not a player in room ${roomCode}.`,
+      `Both ${oldUid} and ${newUid} are players in room ${roomCode}; refusing to displace.`,
     );
   }
-  if (newUid in players) {
+  if (!oldInPlayers && !newInPlayers) {
+    // Caller has no claim on the room — they're not a player and oldUid isn't either.
     throw new HttpsError(
       'failed-precondition',
-      `${newUid} is already a player in room ${roomCode}.`,
+      `Neither ${oldUid} nor ${newUid} is a player in room ${roomCode}.`,
     );
   }
 
