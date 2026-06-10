@@ -1,7 +1,9 @@
 import Constants from 'expo-constants';
 import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { signInWithGoogleIdToken } from './firebase';
 
@@ -25,6 +27,24 @@ export function isGoogleSignInConfigured(): boolean {
 }
 
 /**
+ * Build the redirect URI for Google OAuth.
+ *
+ * - Web: uses the current origin (e.g. https://localhost:8081 in dev,
+ *   your deployed domain in production). Must be listed under
+ *   "Authorized redirect URIs" in the Google Cloud Console OAuth client.
+ * - Native (iOS / Android): uses the custom URI scheme so the OS hands
+ *   control back to the app. Must also be listed as an authorized
+ *   redirect URI (just the scheme, e.g. "sprightlywand://").
+ */
+function makeGoogleRedirectUri(): string {
+  if (Platform.OS === 'web') {
+    // On web, expo-auth-session uses the current page origin.
+    return AuthSession.makeRedirectUri();
+  }
+  return AuthSession.makeRedirectUri({ scheme: 'sprightlywand' });
+}
+
+/**
  * Hook for the "Sign in with Google" affordance on the Welcome screen.
  *
  * Returns `{ ready, busy, signIn, error }`. `ready` reflects whether the OAuth
@@ -36,12 +56,17 @@ export function isGoogleSignInConfigured(): boolean {
  */
 export function useGoogleSignIn() {
   const cfg = readGoogleConfig();
-  // Only webClientId is passed — expo-auth-session uses a browser-based OAuth
-  // flow that requires a web-type client. The androidClientId is a native Android
-  // client that doesn't support custom URI scheme redirects and causes Error 400.
+  const redirectUri = makeGoogleRedirectUri();
+
+  // Only webClientId is passed as the primary client — expo-auth-session uses
+  // a browser-based OAuth flow that works on all platforms (web, iOS, Android)
+  // with a single web-type OAuth client. Passing androidClientId here would
+  // switch Android to the native account-picker flow which requires extra
+  // SHA-1 fingerprint setup and causes Error 400 without it.
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: cfg.webClientId,
     iosClientId: cfg.iosClientId,
+    redirectUri,
   });
 
   const [busy, setBusy] = useState(false);
@@ -60,7 +85,7 @@ export function useGoogleSignIn() {
         .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
         .finally(() => setBusy(false));
     } else if (response.type === 'error') {
-      setError(response.error?.message ?? 'Sign-in was cancelled');
+      setError(response.error?.message ?? 'Sign-in failed');
       setBusy(false);
     } else if (response.type === 'dismiss' || response.type === 'cancel') {
       setBusy(false);
@@ -87,5 +112,8 @@ export function useGoogleSignIn() {
     busy,
     error,
     signIn,
+    // Expose the redirect URI so it's easy to log/verify during setup
+    redirectUri,
   };
 }
+
