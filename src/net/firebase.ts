@@ -14,6 +14,7 @@ import {
 // @ts-expect-error getReactNativePersistence isn't in firebase's public TS types but is exported at runtime.
 import { getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { firebaseConfig } from './firebaseConfig';
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
@@ -34,6 +35,40 @@ try {
 export const auth = _auth;
 
 export const db = getFirestore(app);
+
+const functions = getFunctions(app);
+
+export type MigrateUidResult = {
+  migrated: boolean;
+  movedHand: boolean;
+  movedSlots: boolean;
+};
+
+/**
+ * Recovery escape hatch: rewrite all references to `oldUid` in a single room
+ * over to the currently signed-in uid. Used when client-side
+ * linkWithCredential fell back to signInWithCredential during Google sign-in,
+ * leaving the player's hand stranded on the old anonymous uid. Server-side
+ * function gates on the caller being signed in, oldUid being a player on the
+ * room, and the new uid not already being a player.
+ */
+export async function migrateOrphanedUid(
+  oldUid: string,
+  roomCode: string,
+): Promise<MigrateUidResult> {
+  const fn = httpsCallable<{ oldUid: string; roomCode: string }, MigrateUidResult>(
+    functions,
+    'migrateUid',
+  );
+  const result = await fn({ oldUid, roomCode });
+  return result.data;
+}
+
+// Expose on globalThis so a one-off migration can be run from the browser
+// console after signing in:
+//   await __migrateOrphanedUid('OLD_UID', 'ROOM_CODE')
+(globalThis as unknown as { __migrateOrphanedUid: typeof migrateOrphanedUid }).__migrateOrphanedUid =
+  migrateOrphanedUid;
 
 let signingIn: Promise<string> | null = null;
 

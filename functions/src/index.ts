@@ -1,5 +1,10 @@
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import * as admin from 'firebase-admin';
 import { Expo, ExpoPushMessage } from 'expo-server-sdk';
+
+if (admin.apps.length === 0) admin.initializeApp();
+const db = admin.firestore();
 
 const log = (msg: string, extra?: Record<string, unknown>) =>
   console.log(`[onTurnChange] ${msg}${extra ? ' ' + JSON.stringify(extra) : ''}`);
@@ -165,4 +170,89 @@ export const onHandEnd = onDocumentUpdated('rooms/{code}', async (event) => {
   } catch (err) {
     console.error('[onHandEnd] hand-end push FAILED', { code, err: String(err) });
   }
+});
+
+// Recursively replace OLD with NEW wherever it appears as an object key or
+// string value. Firestore SDK objects (Timestamp etc.) are returned untouched
+// so they round-trip on write.
+function rewriteUid(value: unknown, OLD: string, NEW: string): unknown {
+  if (typeof value === 'string') return value === OLD ? NEW : value;
+  if (Array.isArray(value)) return value.map((v) => rewriteUid(v, OLD, NEW));
+  if (value && typeof value === 'object') {
+    const ctor = (value as { constructor?: { name?: string } }).constructor;
+    if (ctor && ctor.name !== 'Object') return value;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k === OLD ? NEW : k] = rewriteUid(v, OLD, NEW);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * Move all references from `oldUid` to the authenticated caller's uid on a
+ * single room. Recovery path for when client-side linkWithCredential fell
+ * back to signInWithCredential during Google sign-in, leaving game state
+ * stranded under the player's old anonymous uid.
+ *
+ * Gated: caller must be signed in; oldUid must be a player on the room;
+ * the caller's uid must NOT already be a player (no displacing the opponent).
+ */
+export const migrateUid = onCall(async (request) => {
+  const newUid = request.auth?.uid;
+  if (!newUid) {
+    throw new HttpsError('unauthenticated', 'Sign in first.');
+  }
+  const data = (request.data ?? {}) as { oldUid?: unknown; roomCode?: unknown };
+  const { oldUid, roomCode } = data;
+  if (typeof oldUid !== 'string' || typeof roomCode !== 'string') {
+    throw new HttpsError('invalid-argument', 'oldUid and roomCode are required strings.');
+  }
+  if (oldUid === newUid) {
+    throw new HttpsError('invalid-argument', 'oldUid and newUid are the same.');
+  }
+
+  const roomRef = db.doc(`rooms/${roomCode}`);
+  const roomSnap = await roomRef.get();
+  if (!roomSnap.exists) {
+    throw new HttpsError('not-found', `Room ${roomCode} not found.`);
+  }
+  const before = roomSnap.data() ?? {};
+  const players = (before as { players?: Record<string, unknown> }).players ?? {};
+  if (!(oldUid in players)) {
+    throw new HttpsError(
+      'failed-precondition',
+      `${oldUid} is not a player in room ${roomCode}.`,
+    );
+  }
+  if (newUid in players) {
+    throw new HttpsError(
+      'failed-precondition',
+      `${newUid} is already a player in room ${roomCode}.`,
+    );
+  }
+
+  const after = rewriteUid(before, oldUid, newUid) as FirebaseFirestore.DocumentData;
+  await roomRef.set(after);
+
+  let movedHand = false;
+  const oldHandRef = db.doc(`rooms/${roomCode}/privateHands/${oldUid}`);
+  const handSnap = await oldHandRef.get();
+  if (handSnap.exists) {
+    await db.doc(`rooms/${roomCode}/privateHands/${newUid}`).set(handSnap.data()!);
+    await oldHandRef.delete();
+    movedHand = true;
+  }
+
+  let movedSlots = false;
+  const oldSlotsRef = db.doc(`rooms/${roomCode}/privateSlots/${oldUid}`);
+  const slotsSnap = await oldSlotsRef.get();
+  if (slotsSnap.exists) {
+    await db.doc(`rooms/${roomCode}/privateSlots/${newUid}`).set(slotsSnap.data()!);
+    await oldSlotsRef.delete();
+    movedSlots = true;
+  }
+
+  return { migrated: true, movedHand, movedSlots };
 });
