@@ -27,21 +27,23 @@ export function isGoogleSignInConfigured(): boolean {
 }
 
 /**
- * Build the redirect URI for Google OAuth.
+ * Build the redirect URI for Google OAuth — web only.
  *
- * - Web: uses the current origin (e.g. https://localhost:8081 in dev,
- *   your deployed domain in production). Must be listed under
- *   "Authorized redirect URIs" in the Google Cloud Console OAuth client.
- * - Native (iOS / Android): uses the custom URI scheme so the OS hands
- *   control back to the app. Must also be listed as an authorized
- *   redirect URI (just the scheme, e.g. "sprightlywand://").
+ * On web, expo-auth-session must redirect back to the current page origin
+ * (e.g. http://localhost:8081 in dev, your deployed domain in production).
+ * This URI must be listed under "Authorized redirect URIs" in the Google
+ * Cloud Console web OAuth client.
+ *
+ * On native (iOS / Android), expo-auth-session derives the redirect URI
+ * automatically from iosClientId / androidClientId using the reversed
+ * Google client ID scheme (com.googleusercontent.apps.CLIENT_ID://). Those
+ * native OAuth clients do NOT require the URI to be registered — Google
+ * accepts reversed client ID schemes by default. We therefore return
+ * undefined on native and let the library handle it.
  */
-function makeGoogleRedirectUri(): string {
-  if (Platform.OS === 'web') {
-    // On web, expo-auth-session uses the current page origin.
-    return AuthSession.makeRedirectUri();
-  }
-  return AuthSession.makeRedirectUri({ scheme: 'sprightlywand' });
+function makeGoogleRedirectUri(): string | undefined {
+  if (Platform.OS !== 'web') return undefined;
+  return AuthSession.makeRedirectUri();
 }
 
 /**
@@ -58,15 +60,10 @@ export function useGoogleSignIn() {
   const cfg = readGoogleConfig();
   const redirectUri = makeGoogleRedirectUri();
 
-  // Only webClientId is passed as the primary client — expo-auth-session uses
-  // a browser-based OAuth flow that works on all platforms (web, iOS, Android)
-  // with a single web-type OAuth client. Passing androidClientId here would
-  // switch Android to the native account-picker flow which requires extra
-  // SHA-1 fingerprint setup and causes Error 400 without it.
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: cfg.webClientId,
     iosClientId: cfg.iosClientId,
-    redirectUri,
+    ...(redirectUri ? { redirectUri } : {}),
   });
 
   const [busy, setBusy] = useState(false);
@@ -112,8 +109,7 @@ export function useGoogleSignIn() {
     busy,
     error,
     signIn,
-    // Expose the redirect URI so it's easy to log/verify during setup
-    redirectUri,
+    redirectUri, // exposed so it's easy to verify during OAuth client setup
   };
 }
 
